@@ -1,0 +1,45 @@
+✅ 数据集中共有 42326 个唯一标签，前0.1%热门标签（共 42 个）如下：
+--------------------------------------------------
+      热门标签名  出现次数
+      funny   418
+     comedy   322
+        nan   202
+      humor   191
+  interview   152
+       news   144
+celebrities   141
+       2017   139
+      video   137
+      music   136
+  celebrity   134
+   comedian   131
+funny video   129
+       2018   127
+    science   120
+      jokes   119
+     Comedy   119
+       food   119
+     how to   117
+        NBC   112
+       show   108
+ late night   101
+       live   100
+     sports    99
+  hollywood    97
+       clip    95
+     review    93
+       game    92
+  talk show    92
+ television    92
+  christmas    91
+ basketball    90
+    comedic    88
+       vlog    88
+documentary    87
+        nba    86
+  highlight    85
+    Trailer    84
+        Pop    82
+   tutorial    79
+      games    79
+ highlights    78
