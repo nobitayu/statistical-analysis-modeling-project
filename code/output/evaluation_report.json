@@ -1,0 +1,22 @@
+{
+  "model_performance": {
+    "r2": 0.3032309987425402,
+    "rmse": 1.5528783691133632,
+    "mae": 1.2183401753986933,
+    "mape": 10.463635362365283
+  },
+  "residual_analysis": {
+    "normality_test": "Shapiro-Wilk",
+    "normality_statistic": 0.9767313599586487,
+    "normality_p_value": 1.3960949070322454e-26,
+    "normality_ok": false,
+    "residual_mean": 0.004089151058385282,
+    "residual_std": 1.5528729851806298,
+    "heteroscedasticity_ok": false
+  },
+  "model_info": {
+    "n_samples": 4525,
+    "n_features": 32,
+    "n_significant_features": 10
+  }
+}
