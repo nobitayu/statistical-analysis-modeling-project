@@ -1,3 +1,8 @@
+# 脚本主要功能：
+# 1. API调用：使用YouTube Data API获取美国地区（US）的视频分类数据
+# 2. 数据映射：建立分类ID（category_id）到分类名称（category_name）的映射关系
+# 3. 结果保存：将映射表保存为CSV文件，用于后续数据分析中的类别解析
+
 import requests
 import pandas as pd
 
