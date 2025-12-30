@@ -1,0 +1,182 @@
+{
+  "intercept": 0.6967974237856176,
+  "coefficients": {
+    "category_1[T.True]": {
+      "coefficient": 0.009517262219950917,
+      "std_err": 0.04160673493206001,
+      "p_value": 0.8190779518991529,
+      "is_significant": false
+    },
+    "category_2[T.True]": {
+      "coefficient": 0.01132916821689943,
+      "std_err": 0.04698136564406459,
+      "p_value": 0.8094553266514629,
+      "is_significant": false
+    },
+    "category_10[T.True]": {
+      "coefficient": -0.020783941846826637,
+      "std_err": 0.02799468603964489,
+      "p_value": 0.45786565018981407,
+      "is_significant": false
+    },
+    "category_15[T.True]": {
+      "coefficient": 0.01105751396103094,
+      "std_err": 0.0793446029724944,
+      "p_value": 0.8891708925316584,
+      "is_significant": false
+    },
+    "category_17[T.True]": {
+      "coefficient": -0.047258138652659765,
+      "std_err": 0.03047613095056583,
+      "p_value": 0.12104742655668357,
+      "is_significant": false
+    },
+    "category_19[T.True]": {
+      "coefficient": 0.1137952142957328,
+      "std_err": 0.04693958870670394,
+      "p_value": 0.015374166948452667,
+      "is_significant": true
+    },
+    "category_20[T.True]": {
+      "coefficient": 0.03905733714418386,
+      "std_err": 0.019888679214118122,
+      "p_value": 0.049609894798366964,
+      "is_significant": true
+    },
+    "category_22[T.True]": {
+      "coefficient": 0.04261875414653682,
+      "std_err": 0.023370471519142247,
+      "p_value": 0.06827094843051076,
+      "is_significant": false
+    },
+    "category_23[T.True]": {
+      "coefficient": 0.059214689570321166,
+      "std_err": 0.02555512463808203,
+      "p_value": 0.020537253311443467,
+      "is_significant": true
+    },
+    "category_25[T.True]": {
+      "coefficient": -0.045573058521284016,
+      "std_err": 0.05049847284347568,
+      "p_value": 0.36685462880120223,
+      "is_significant": false
+    },
+    "category_26[T.True]": {
+      "coefficient": 0.06433105206877432,
+      "std_err": 0.0331268834864081,
+      "p_value": 0.052199140059820334,
+      "is_significant": false
+    },
+    "category_27[T.True]": {
+      "coefficient": 0.07286656665178781,
+      "std_err": 0.038099507235161985,
+      "p_value": 0.0558659437924619,
+      "is_significant": false
+    },
+    "category_28[T.True]": {
+      "coefficient": 0.06127319013979243,
+      "std_err": 0.03692775667038696,
+      "p_value": 0.09712483454614215,
+      "is_significant": false
+    },
+    "category_29[T.True]": {
+      "coefficient": 0.14747219717210014,
+      "std_err": 0.04289736465784829,
+      "p_value": 0.0005913479594645311,
+      "is_significant": true
+    },
+    "period_Dawn[T.True]": {
+      "coefficient": 0.029289257687208747,
+      "std_err": 0.020436787523315323,
+      "p_value": 0.15187475117220697,
+      "is_significant": false
+    },
+    "period_Evening[T.True]": {
+      "coefficient": 0.0017960123031154074,
+      "std_err": 0.015571317731322056,
+      "p_value": 0.9081795074587712,
+      "is_significant": false
+    },
+    "period_Morning[T.True]": {
+      "coefficient": 0.018608651362880736,
+      "std_err": 0.03167627421165867,
+      "p_value": 0.556919529768889,
+      "is_significant": false
+    },
+    "is_weekend[T.True]": {
+      "coefficient": 0.01838302321916238,
+      "std_err": 0.014379442523647446,
+      "p_value": 0.20116038553749557,
+      "is_significant": false
+    },
+    "title_has_punct[T.True]": {
+      "coefficient": -0.013753969106169994,
+      "std_err": 0.01499218853257579,
+      "p_value": 0.35897337573136534,
+      "is_significant": false
+    },
+    "title_upper_ratio": {
+      "coefficient": 0.03981305623332776,
+      "std_err": 0.03650546625651645,
+      "p_value": 0.2755000657565535,
+      "is_significant": false
+    },
+    "log_channel_activity": {
+      "coefficient": -0.09359894403051801,
+      "std_err": 0.012837632340139215,
+      "p_value": 3.568230159069103e-13,
+      "is_significant": true
+    },
+    "log_channel_avg_views": {
+      "coefficient": 0.9472771927232504,
+      "std_err": 0.00955906683701506,
+      "p_value": 0.0,
+      "is_significant": true
+    },
+    "log_channel_avg_comment_count": {
+      "coefficient": -2.5703831697263873,
+      "std_err": 1.4735013101955288,
+      "p_value": 0.08115101339415297,
+      "is_significant": false
+    },
+    "log_tags_count": {
+      "coefficient": -0.008619625812202027,
+      "std_err": 0.00877742799080814,
+      "p_value": 0.32613745404425865,
+      "is_significant": false
+    },
+    "tag_density": {
+      "coefficient": 0.05276792202790859,
+      "std_err": 0.029728956653237198,
+      "p_value": 0.07596521042576704,
+      "is_significant": false
+    },
+    "log_desc_length": {
+      "coefficient": 0.00912184881323752,
+      "std_err": 0.0046050578110828294,
+      "p_value": 0.04766572416437895,
+      "is_significant": true
+    },
+    "desc_has_timestamp": {
+      "coefficient": -0.013688882473846614,
+      "std_err": 0.02534324825068253,
+      "p_value": 0.5891255035499681,
+      "is_significant": false
+    },
+    "desc_keyword_count": {
+      "coefficient": 0.0033807593659605922,
+      "std_err": 0.00798030230754695,
+      "p_value": 0.671848377662631,
+      "is_significant": false
+    }
+  },
+  "formula": "log_views ~ category_1 + category_2 + category_10 + category_15 + category_17 + category_19 + category_20 + category_22 + category_23 + category_25 + category_26 + category_27 + category_28 + category_29 + period_Dawn + period_Evening + period_Morning + is_weekend + title_upper_ratio + title_has_punct + log_channel_activity + log_channel_avg_views + log_channel_avg_comment_count + log_tags_count + tag_density + log_desc_length + desc_has_timestamp + desc_keyword_count",
+  "model_info": {
+    "r_squared": 0.8041456299164915,
+    "adj_r_squared": 0.8030294234515336,
+    "f_statistic": 1404.6335064183295,
+    "f_pvalue": 0.0,
+    "n_observations": 4942,
+    "n_features": 28
+  }
+}
