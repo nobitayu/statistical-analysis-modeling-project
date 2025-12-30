@@ -1,0 +1,6 @@
+﻿title_length,question_exclamation_count,tag_count,hour,tags_in_title,is_weekend,time_period,category,pred_prob_trending,pred_is_trending
+82,0,1,12,0,1,afternoon,Gaming,0.8584325197208915,1
+31,1,1,0,0,0,dawn,Comedy,0.8201445169992893,1
+77,0,20,15,1,0,afternoon,News & Politics,0.0030198188945762556,0
+22,0,0,7,0,0,morning,People & Blogs,0.18055600473803388,0
+55,0,0,11,0,1,morning,People & Blogs,0.18107305937560714,0
