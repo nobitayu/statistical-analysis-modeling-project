@@ -1,0 +1,9 @@
+{
+  "model": "process/model_pipeline.joblib",
+  "data": "process/youtube_data_balanced_5000.csv",
+  "target": "is_trending",
+  "auc": 0.96305288,
+  "best_metric": "f1",
+  "best_threshold": 0.39,
+  "best_metric_value": 0.9128893863085246
+}
