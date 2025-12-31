@@ -11,6 +11,7 @@ import os
 import json
 import matplotlib.pyplot as plt
 from pathlib import Path
+from scipy import stats
 from sklearn.metrics import (
     roc_curve, roc_auc_score, confusion_matrix, ConfusionMatrixDisplay,
     precision_recall_curve, precision_score, recall_score, f1_score, accuracy_score
@@ -51,6 +52,7 @@ MODEL_FILE = MODEL_DIR / "model_pipeline_no_text.joblib"
 METRICS_FILE = MODEL_DIR / "metrics_no_text.txt"
 FEATURE_IMPORTANCE_FILE = MODEL_DIR / "feature_importance_no_text.csv"
 OPTIMIZE_RESULTS_DIR = MODEL_DIR / "optimize_results"
+ANALYSIS_IMAGE_FILE = BASE_DIR / "process" / "youtube_analysis_balanced_5000.png"
 
 # 加载数据
 @st.cache_data
@@ -273,18 +275,189 @@ def plot_metrics_vs_threshold_dynamic(y_true, y_prob):
     plt.tight_layout()
     return fig
 
+# 执行统计检验的函数
+def perform_statistical_tests(df):
+    """执行统计检验并返回结果"""
+    results = []
+    
+    # 1. 标题长度 vs 是否热门
+    try:
+        trending_title = df[df['is_trending'] == 1]['title_length']
+        non_trending_title = df[df['is_trending'] == 0]['title_length']
+        t_stat, p_value = stats.ttest_ind(trending_title, non_trending_title, equal_var=False)
+        trending_mean = trending_title.mean()
+        non_trending_mean = non_trending_title.mean()
+        results.append({
+            '测试': '标题长度 vs 是否热门',
+            'H₀': '热门和非热门视频的标题长度无显著差异',
+            '热门平均': f"{trending_mean:.2f}",
+            '非热门平均': f"{non_trending_mean:.2f}",
+            '差异': f"{trending_mean - non_trending_mean:.2f}",
+            't统计量': f"{t_stat:.4f}",
+            'P值': f"{p_value:.4e}",
+            '结论': '拒绝H₀，标题长度与是否热门有显著差异 (p < 0.05)' if p_value < 0.05 else '不能拒绝H₀，标题长度与是否热门无显著差异'
+        })
+    except Exception as e:
+        results.append({
+            '测试': '标题长度 vs 是否热门',
+            '错误': str(e)
+        })
+    
+    # 2. 问号感叹号数量 vs 是否热门
+    try:
+        trending_qe = df[df['is_trending'] == 1]['question_exclamation_count']
+        non_trending_qe = df[df['is_trending'] == 0]['question_exclamation_count']
+        t_stat, p_value = stats.ttest_ind(trending_qe, non_trending_qe, equal_var=False)
+        trending_mean = trending_qe.mean()
+        non_trending_mean = non_trending_qe.mean()
+        results.append({
+            '测试': '问号感叹号数量 vs 是否热门',
+            'H₀': '热门和非热门视频的问号感叹号数量无显著差异',
+            '热门平均': f"{trending_mean:.2f}",
+            '非热门平均': f"{non_trending_mean:.2f}",
+            '差异': f"{trending_mean - non_trending_mean:.2f}",
+            't统计量': f"{t_stat:.4f}",
+            'P值': f"{p_value:.4f}",
+            '结论': '拒绝H₀，问号感叹号数量与是否热门有显著差异' if p_value < 0.05 else '不能拒绝H₀，问号感叹号数量与是否热门无显著差异'
+        })
+    except Exception as e:
+        results.append({
+            '测试': '问号感叹号数量 vs 是否热门',
+            '错误': str(e)
+        })
+    
+    # 3. 标签数量 vs 是否热门
+    try:
+        trending_tags = df[df['is_trending'] == 1]['tag_count']
+        non_trending_tags = df[df['is_trending'] == 0]['tag_count']
+        t_stat, p_value = stats.ttest_ind(trending_tags, non_trending_tags, equal_var=False)
+        trending_mean = trending_tags.mean()
+        non_trending_mean = non_trending_tags.mean()
+        results.append({
+            '测试': '标签数量 vs 是否热门',
+            'H₀': '热门和非热门视频的标签数量无显著差异',
+            '热门平均': f"{trending_mean:.2f}",
+            '非热门平均': f"{non_trending_mean:.2f}",
+            '差异': f"{trending_mean - non_trending_mean:.2f}",
+            't统计量': f"{t_stat:.4f}",
+            'P值': f"{p_value:.4e}",
+            '结论': '拒绝H₀，标签数量与是否热门有显著差异' if p_value < 0.05 else '不能拒绝H₀，标签数量与是否热门无显著差异'
+        })
+    except Exception as e:
+        results.append({
+            '测试': '标签数量 vs 是否热门',
+            '错误': str(e)
+        })
+    
+    # 4. 标签是否出现在标题里 vs 是否热门 (卡方检验)
+    try:
+        contingency_table = pd.crosstab(df['tags_in_title'], df['is_trending'])
+        chi2, p_value, dof, expected = stats.chi2_contingency(contingency_table)
+        results.append({
+            '测试': '标签是否出现在标题里 vs 是否热门',
+            'H₀': '标签是否出现在标题里与是否热门无关',
+            '列联表': f"标签在标题中=0且非热门: {contingency_table.loc[0, 0] if 0 in contingency_table.index else 0}, "
+                     f"标签在标题中=0且热门: {contingency_table.loc[0, 1] if 0 in contingency_table.index else 0}, "
+                     f"标签在标题中=1且非热门: {contingency_table.loc[1, 0] if 1 in contingency_table.index else 0}, "
+                     f"标签在标题中=1且热门: {contingency_table.loc[1, 1] if 1 in contingency_table.index else 0}",
+            '卡方统计量': f"{chi2:.4f}",
+            'P值': f"{p_value:.4e}",
+            '结论': '拒绝H₀，标签是否出现在标题里与是否热门有关' if p_value < 0.05 else '不能拒绝H₀，标签是否出现在标题里与是否热门无关'
+        })
+    except Exception as e:
+        results.append({
+            '测试': '标签是否出现在标题里 vs 是否热门',
+            '错误': str(e)
+        })
+    
+    # 5. 发布时间是否周末 vs 是否热门 (卡方检验)
+    try:
+        contingency_table = pd.crosstab(df['is_weekend'], df['is_trending'])
+        chi2, p_value, dof, expected = stats.chi2_contingency(contingency_table)
+        results.append({
+            '测试': '发布时间是否周末 vs 是否热门',
+            'H₀': '周末发布的视频是否为热门视频与工作日无显著差异',
+            '列联表': f"工作日且非热门: {contingency_table.loc[0, 0] if 0 in contingency_table.index else 0}, "
+                     f"工作日且热门: {contingency_table.loc[0, 1] if 0 in contingency_table.index else 0}, "
+                     f"周末且非热门: {contingency_table.loc[1, 0] if 1 in contingency_table.index else 0}, "
+                     f"周末且热门: {contingency_table.loc[1, 1] if 1 in contingency_table.index else 0}",
+            '卡方统计量': f"{chi2:.4f}",
+            'P值': f"{p_value:.4f}",
+            '结论': '拒绝H₀，周末发布的视频是否为热门视频与工作日有显著差异' if p_value < 0.05 else '不能拒绝H₀，周末发布的视频是否为热门视频与工作日无显著差异'
+        })
+    except Exception as e:
+        results.append({
+            '测试': '发布时间是否周末 vs 是否热门',
+            '错误': str(e)
+        })
+    
+    # 6. 发布时间段 vs 是否热门 (卡方检验)
+    try:
+        contingency_table = pd.crosstab(df['time_period'], df['is_trending'])
+        chi2, p_value, dof, expected = stats.chi2_contingency(contingency_table)
+        
+        # 生成简化的列联表描述
+        time_table_desc = ""
+        for period in ['afternoon', 'dawn', 'evening', 'morning']:
+            if period in contingency_table.index:
+                time_table_desc += f"{period}: 非热门={contingency_table.loc[period, 0]}, 热门={contingency_table.loc[period, 1]}; "
+        
+        results.append({
+            '测试': '发布时间段 vs 是否热门',
+            'H₀': '不同时间段发布的视频是否为热门视频无显著差异',
+            '列联表': time_table_desc,
+            '卡方统计量': f"{chi2:.4f}",
+            'P值': f"{p_value:.4e}",
+            '结论': '拒绝H₀，不同时间段发布的视频是否为热门视频有显著差异' if p_value < 0.05 else '不能拒绝H₀，不同时间段发布的视频是否为热门视频无显著差异'
+        })
+    except Exception as e:
+        results.append({
+            '测试': '发布时间段 vs 是否热门',
+            '错误': str(e)
+        })
+    
+    # 7. 类别 vs 是否热门 (卡方检验)
+    try:
+        contingency_table = pd.crosstab(df['category'], df['is_trending'])
+        chi2, p_value, dof, expected = stats.chi2_contingency(contingency_table)
+        
+        # 获取前5个类别的分布
+        top_categories = df['category'].value_counts().head(5).index
+        category_desc = "前5类别: "
+        for cat in top_categories:
+            if cat in contingency_table.index:
+                category_desc += f"{cat}: 非热门={contingency_table.loc[cat, 0]}, 热门={contingency_table.loc[cat, 1]}; "
+        
+        results.append({
+            '测试': '类别 vs 是否热门',
+            'H₀': '不同类别的视频是否为热门视频无显著差异',
+            '列联表': category_desc,
+            '卡方统计量': f"{chi2:.4f}",
+            'P值': f"{p_value:.4e}",
+            '结论': '拒绝H₀，不同类别的视频是否为热门视频有显著差异' if p_value < 0.05 else '不能拒绝H₀，不同类别的视频是否为热门视频无显著差异'
+        })
+    except Exception as e:
+        results.append({
+            '测试': '类别 vs 是否热门',
+            '错误': str(e)
+        })
+    
+    return results
+
 # 主应用
 def main():
     # 侧边栏导航
     page = st.sidebar.selectbox(
         "选择页面",
-        ["首页", "数据分析", "逻辑回归模型", "回归模型", "视频预测"]
+        ["首页", "分类数据分析", "回归数据分析", "逻辑回归模型", "回归模型", "视频预测"]
     )
     
     if page == "首页":
         show_home()
-    elif page == "数据分析":
-        show_data_analysis()
+    elif page == "分类数据分析":
+        show_classification_data_analysis()
+    elif page == "回归数据分析":
+        show_regression_data_analysis()
     elif page == "逻辑回归模型":
         show_model_evaluation()
     elif page == "回归模型":
@@ -292,10 +465,142 @@ def main():
     elif page == "视频预测":
         show_prediction()
 
-def show_data_analysis():
-    """数据分析页面"""
-    # 数据分析界面（暂时为空）
-    pass
+def show_classification_data_analysis():
+    """分类数据分析页面"""
+    st.header("分类数据分析")
+    
+    # 加载数据
+    df = load_data()
+    if df is None:
+        st.error("无法加载数据")
+        return
+    
+    # 创建标签页菜单
+    tab1, tab2 = st.tabs(["可视化分析", "统计检验"])
+    
+    # 标签页1: 可视化分析
+    with tab1:
+        st.subheader("数据可视化分析")
+        
+        # 显示数据摘要
+        st.write("**数据摘要**")
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("总样本数", len(df))
+        with col2:
+            trending_count = df['is_trending'].sum()
+            st.metric("热门视频数", trending_count)
+        with col3:
+            non_trending_count = len(df) - trending_count
+            st.metric("非热门视频数", non_trending_count)
+        with col4:
+            st.metric("热门比例", f"{trending_count/len(df)*100:.1f}%")
+        
+        # 显示可视化图片
+        st.markdown("---")
+        st.write("**特征可视化分析图**")
+        
+        # 检查图片文件是否存在
+        image_path = str(ANALYSIS_IMAGE_FILE)
+        if os.path.exists(image_path):
+            # 显示图片
+            st.image(image_path, caption="YouTube视频特征分析 (热门 vs 非热门各2500条)", use_container_width=True)
+            
+            # 图片说明
+            st.markdown("""
+            **可视化分析说明:**
+            
+            1. **标题长度 vs 是否热门**: 热门视频标题通常更短
+            2. **问号感叹号数量 vs 是否热门**: 两者差异不大
+            3. **标签数量 vs 是否热门**: 非热门视频通常有更多标签
+            4. **标签是否出现在标题里 vs 是否热门**: 标签出现在标题中的视频很少成为热门
+            5. **发布时间是否周末 vs 是否热门**: 周末发布的视频成为热门的比例略高
+            6. **发布时间段 vs 是否热门**: 不同时间段的热门视频分布有差异
+            7. **类别 vs 是否热门**: 不同类别的热门视频比例有显著差异
+            8. **标题长度 vs 标签数量 vs 是否热门**: 热门视频集中于“短标题+多标签”区域
+            9. **发布时间小时分布**: 热门视频在不同时间的发布分布
+            """)
+        else:
+            st.warning(f"可视化图片不存在: {image_path}")
+            st.info("请确保已运行process.py生成youtube_analysis_balanced_5000.png文件")
+    
+    # 标签页2: 统计检验
+    with tab2:
+        st.subheader("统计检验结果")
+        st.markdown("对数据中的各个特征进行统计检验，验证它们与视频是否热门之间的关系。")
+        
+        # 执行统计检验
+        with st.spinner("正在执行统计检验..."):
+            test_results = perform_statistical_tests(df)
+        
+        # 显示统计检验结果
+        st.markdown("---")
+        st.write("**统计检验详细结果**")
+        
+        for i, result in enumerate(test_results, 1):
+            with st.expander(f"检验{i}: {result['测试']}", expanded=i <= 3):
+                if '错误' in result:
+                    st.error(f"执行检验时出错: {result['错误']}")
+                else:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.markdown(f"**原假设(H₀):** {result['H₀']}")
+                        if '热门平均' in result:
+                            st.markdown(f"**热门视频平均值:** {result['热门平均']}")
+                        if '非热门平均' in result:
+                            st.markdown(f"**非热门视频平均值:** {result['非热门平均']}")
+                        if '差异' in result:
+                            st.markdown(f"**差异:** {result['差异']}")
+                        if '列联表' in result:
+                            st.markdown(f"**列联表数据:** {result['列联表']}")
+                    
+                    with col2:
+                        if 't统计量' in result:
+                            st.metric("t统计量", result['t统计量'])
+                        if '卡方统计量' in result:
+                            st.metric("卡方统计量", result['卡方统计量'])
+                        if 'P值' in result:
+                            p_value = float(result['P值'].replace('e-', 'e-'))
+                            p_display = result['P值']
+                            if p_value < 0.05:
+                                st.metric("P值", p_display, delta="显著", delta_color="off")
+                            else:
+                                st.metric("P值", p_display, delta="不显著", delta_color="inverse")
+                    
+                    # 结论
+                    st.markdown(f"**结论:** {result['结论']}")
+        
+        # 总结表格
+        st.markdown("---")
+        st.write("**统计检验总结**")
+        
+        summary_data = []
+        for result in test_results:
+            if '错误' not in result:
+                is_significant = 'P值' in result and float(result['P值'].replace('e-', 'e-')) < 0.05
+                summary_data.append({
+                    '检验项目': result['测试'],
+                    'P值': result['P值'],
+                    '是否显著': '是' if is_significant else '否',
+                    '结论': '有显著差异' if is_significant else '无显著差异'
+                })
+        
+        if summary_data:
+            summary_df = pd.DataFrame(summary_data)
+            st.dataframe(summary_df, use_container_width=True, hide_index=True)
+
+def show_regression_data_analysis():
+    """回归数据分析页面"""
+    st.header("回归数据分析")
+    
+    st.info("回归数据分析部分正在开发中，敬请期待。")
+    
+    # 预留位置，后续可以添加回归模型的数据分析内容
+    # 结构可以参考分类数据分析部分：
+    # - 数据分布可视化
+    # - 相关性分析
+    # - 回归诊断图
+    # - 假设检验结果
 
 def show_home():
     """首页"""
@@ -307,17 +612,26 @@ def show_home():
     
     ### 主要功能
     
-    1. **逻辑回归模型**
+    1. **分类数据分析**
+       - 数据可视化分析图展示
+       - 统计检验结果展示
+       - 特征与目标变量关系分析
+    
+    2. **回归数据分析**
+       - 回归模型的数据分析
+       - 回归诊断和假设检验
+    
+    3. **逻辑回归模型**
        - 模型性能指标展示
        - 可视化图表（ROC曲线、混淆矩阵等）
        - 模型参数解释
        - 阈值优化结果
     
-    2. **回归模型**
+    4. **回归模型**
        - 回归模型评估和结果展示
        - 模型参数解释
     
-    3. **视频预测**
+    5. **视频预测**
        - 输入视频特征进行预测
        - 预测概率和结果展示
        - 特征重要性分析
@@ -332,9 +646,10 @@ def show_home():
     ### 使用说明
     
     1. 在左侧导航栏选择不同的页面
-    2. 在"逻辑回归模型"页面查看模型性能和参数
-    3. 在"回归模型"页面查看回归模型结果
-    4. 在"视频预测"页面输入视频特征进行预测
+    2. 在"分类数据分析"页面查看数据分析和统计检验结果
+    3. 在"逻辑回归模型"页面查看模型性能和参数
+    4. 在"回归模型"页面查看回归模型结果
+    5. 在"视频预测"页面输入视频特征进行预测
     """)
     
     # 显示模型基本信息
@@ -745,4 +1060,3 @@ def show_regression_model():
 
 if __name__ == "__main__":
     main()
-
