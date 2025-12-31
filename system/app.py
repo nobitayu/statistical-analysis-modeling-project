@@ -46,11 +46,11 @@ else:
 if BASE_DIR.name == 'system':
     BASE_DIR = BASE_DIR.parent
 
-MODEL_DIR = BASE_DIR / "model" / "model_no_text"
+MODEL_DIR = BASE_DIR / "model" / "model"
 DATA_FILE = BASE_DIR / "process" / "youtube_data_balanced_5000.csv"
-MODEL_FILE = MODEL_DIR / "model_pipeline_no_text.joblib"
-METRICS_FILE = MODEL_DIR / "metrics_no_text.txt"
-FEATURE_IMPORTANCE_FILE = MODEL_DIR / "feature_importance_no_text.csv"
+MODEL_FILE = MODEL_DIR / "model_pipeline.joblib"
+METRICS_FILE = MODEL_DIR / "metrics.txt"
+FEATURE_IMPORTANCE_FILE = MODEL_DIR / "feature_importance.csv"
 OPTIMIZE_RESULTS_DIR = MODEL_DIR / "optimize_results"
 ANALYSIS_IMAGE_FILE = BASE_DIR / "process" / "youtube_analysis_balanced_5000.png"
 
