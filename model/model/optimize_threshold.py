@@ -102,7 +102,6 @@ def plot_metric_vs_threshold(df_metrics: pd.DataFrame, out_path: str):
     plt.plot(df_metrics["threshold"], df_metrics["precision"], label="Precision")
     plt.plot(df_metrics["threshold"], df_metrics["recall"], label="Recall")
     plt.plot(df_metrics["threshold"], df_metrics["f1"], label="F1")
-    plt.plot(df_metrics["threshold"], df_metrics["youden"], label="Youden")
     plt.xlabel("Threshold")
     plt.ylabel("Metric")
     plt.title("Metrics vs Threshold")
