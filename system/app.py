@@ -54,6 +54,16 @@ FEATURE_IMPORTANCE_FILE = MODEL_DIR / "feature_importance.csv"
 OPTIMIZE_RESULTS_DIR = MODEL_DIR / "optimize_results"
 ANALYSIS_IMAGE_FILE = BASE_DIR / "process" / "youtube_analysis_balanced_5000.png"
 
+# 回归模型相关路径
+REGRESSION_MODEL_DIR = BASE_DIR / "regression_model"
+REGRESSION_COEFFICIENTS_JSON = REGRESSION_MODEL_DIR / "model_coefficients.json"
+REGRESSION_COEFFICIENTS_CSV = REGRESSION_MODEL_DIR / "model_coefficients.csv"
+REGRESSION_DIAGNOSTICS_IMG = REGRESSION_MODEL_DIR / "model_diagnostics.png"
+REGRESSION_COEFF_IMPORTANCE_IMG = REGRESSION_MODEL_DIR / "coefficient_importance.png"
+REGRESSION_ACTUAL_VS_PRED_IMG = REGRESSION_MODEL_DIR / "actual_vs_predicted.png"
+REGRESSION_PREDICTION_RESULT_IMG = REGRESSION_MODEL_DIR / "prediction_result.png"
+REGRESSION_PREDICTION_COMPARISON_IMG = REGRESSION_MODEL_DIR / "prediction_comparison.png"
+
 # 加载数据
 @st.cache_data
 def load_data():
@@ -152,6 +162,34 @@ def load_optimize_results():
     except Exception as e:
         st.warning(f"加载优化结果失败: {e}")
     return None
+
+# 加载回归模型系数
+@st.cache_data
+def load_regression_coefficients():
+    """加载回归模型系数"""
+    try:
+        json_path = str(REGRESSION_COEFFICIENTS_JSON)
+        if not os.path.exists(json_path):
+            return None
+        with open(json_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except Exception as e:
+        st.warning(f"加载回归模型系数失败: {e}")
+    return None
+
+# 加载回归模型系数CSV
+@st.cache_data
+def load_regression_coefficients_csv():
+    """加载回归模型系数CSV"""
+    try:
+        csv_path = str(REGRESSION_COEFFICIENTS_CSV)
+        if not os.path.exists(csv_path):
+            return pd.DataFrame()
+        df = pd.read_csv(csv_path)
+        return df
+    except Exception as e:
+        st.warning(f"加载回归模型系数CSV失败: {e}")
+    return pd.DataFrame()
 
 # 生成模型预测结果
 @st.cache_data
@@ -628,8 +666,12 @@ def show_home():
        - 阈值优化结果
     
     4. **回归模型**
-       - 回归模型评估和结果展示
-       - 模型参数解释
+       - Hurdle Model第二阶段：回归模型分析
+       - 模型统计摘要（R²、F统计量等）
+       - 模型诊断（残差分析、异方差检验）
+       - 系数重要性分析和可视化
+       - 预测结果与区间估计（不同场景对比）
+       - 完整模型系数表
     
     5. **视频预测**
        - 输入视频特征进行预测
@@ -1047,16 +1089,816 @@ def show_prediction():
 
 def show_regression_model():
     """回归模型页面"""
-    st.header("回归模型")
+    st.header("回归模型分析")
+    st.markdown("本页面展示Hurdle Model第二阶段：回归模型（The Quantifier）的分析结果，用于预测潜在热门视频的播放量。")
     
-    st.info("回归模型部分正在开发中，敬请期待。")
+    # 加载回归模型数据
+    regression_coeff = load_regression_coefficients()
+    regression_coeff_df = load_regression_coefficients_csv()
     
-    # 预留位置，后续可以添加回归模型的内容
-    # 结构可以参考逻辑回归模型部分：
-    # - 模型性能指标
-    # - 可视化图表
-    # - 模型参数解释
-    # - 预测功能
+    # 创建标签页菜单
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "模型概览", 
+        "模型诊断", 
+        "系数分析", 
+        "预测结果", 
+        "模型系数表",
+        "播放量预测"
+    ])
+    
+    # 标签页1: 模型概览
+    with tab1:
+        st.subheader("模型统计摘要")
+        
+        if regression_coeff:
+            model_info = regression_coeff.get('model_info', {})
+            
+            # 主要指标
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                r_squared = model_info.get('r_squared', 0)
+                st.metric("R² (决定系数)", f"{r_squared:.4f}")
+            with col2:
+                adj_r_squared = model_info.get('adj_r_squared', 0)
+                st.metric("调整R²", f"{adj_r_squared:.4f}")
+            with col3:
+                f_statistic = model_info.get('f_statistic', 0)
+                st.metric("F统计量", f"{f_statistic:.2f}")
+            with col4:
+                n_obs = model_info.get('n_observations', 0)
+                st.metric("样本数", f"{n_obs:,}")
+            
+            st.markdown("---")
+            
+            # 模型信息详细说明
+            st.write("**模型详细信息**")
+            info_data = {
+                '指标': [
+                    'R² (决定系数)',
+                    '调整R²',
+                    'F统计量',
+                    'F统计量p值',
+                    '样本数',
+                    '特征数'
+                ],
+                '数值': [
+                    f"{r_squared:.4f}",
+                    f"{adj_r_squared:.4f}",
+                    f"{f_statistic:.4f}",
+                    f"{model_info.get('f_pvalue', 0):.2e}",
+                    f"{n_obs:,}",
+                    f"{model_info.get('n_features', 0)}"
+                ],
+                '说明': [
+                    '模型解释的方差比例，越接近1越好',
+                    '考虑自由度调整后的R²，更稳健',
+                    '整体模型显著性检验统计量',
+                    'F检验的p值，<0.05表示模型显著',
+                    '用于建模的样本数量',
+                    '模型中包含的特征变量数量'
+                ]
+            }
+            info_df = pd.DataFrame(info_data)
+            st.dataframe(info_df, use_container_width=True, hide_index=True)
+            
+            # 关键显著变量
+            st.markdown("---")
+            st.write("**关键显著变量 (p < 0.05)**")
+            
+            significant_vars = []
+            coefficients = regression_coeff.get('coefficients', {})
+            for var_name, var_info in coefficients.items():
+                if var_info.get('is_significant', False):
+                    significant_vars.append({
+                        '变量': var_name,
+                        '系数': f"{var_info.get('coefficient', 0):.6f}",
+                        '标准误': f"{var_info.get('std_err', 0):.6f}",
+                        'P值': f"{var_info.get('p_value', 1):.4e}"
+                    })
+            
+            if significant_vars:
+                sig_df = pd.DataFrame(significant_vars)
+                st.dataframe(sig_df, use_container_width=True, hide_index=True)
+            else:
+                st.info("未找到显著变量")
+            
+            # 数据预处理信息
+            st.markdown("---")
+            st.write("**数据预处理信息**")
+            st.markdown("""
+            - **目标变量**: `views` (播放量)
+            - **变换方式**: Log变换 (log1p)，降低偏度，使数据更接近正态分布
+            - **原始数据统计**:
+              - 均值: 1,988,320.39
+              - 中位数: 861,138.50
+            - **变换后统计**:
+              - 均值: 13.7793
+              - 中位数: 13.6660
+            - **特征工程**:
+              - 14个类别特征 (category_24为参照组)
+              - 4个时间特征 (period_Afternoon为参照组)
+              - 2个标题特征
+              - 3个频道特征
+              - 5个文本衍生特征
+            """)
+        else:
+            st.warning("无法加载回归模型系数数据")
+    
+    # 标签页2: 模型诊断
+    with tab2:
+        st.subheader("模型诊断结果")
+        
+        if regression_coeff:
+            # 残差正态性检验
+            st.write("**残差正态性检验 (Shapiro-Wilk Test)**")
+            st.markdown("""
+            - **统计量**: 0.8872
+            - **P值**: 0.0000
+            - **结论**: 残差显著偏离正态分布 (α=0.05)
+            
+            注意：虽然残差不完全符合正态分布，但在大样本情况下（n=4942），中心极限定理保证了估计量的渐近正态性。
+            """)
+            
+            st.markdown("---")
+            
+            # 异方差检验
+            st.write("**异方差检验 (Breusch-Pagan Test)**")
+            st.markdown("""
+            - **LM统计量**: 592.9971
+            - **LM p值**: 0.0000
+            - **F统计量**: 23.9250
+            - **F p值**: 0.0000
+            - **结论**: ⚠ 检测到异方差性 (p < 0.05)
+            
+            **处理方式**: 使用稳健标准误 (HC3) 重新估计模型，以获得更可靠的统计推断。
+            """)
+            
+            st.markdown("---")
+            
+            # 稳健标准误模型对比
+            st.write("**稳健标准误模型对比**")
+            comparison_data = {
+                '指标': ['R²', 'F统计量'],
+                '原始模型': ['0.8041', '720.43'],
+                '稳健SE模型': ['0.8041', '1404.63']
+            }
+            comparison_df = pd.DataFrame(comparison_data)
+            st.dataframe(comparison_df, use_container_width=True, hide_index=True)
+            
+            st.info("""
+            **说明**: 
+            - 稳健标准误模型保持了相同的R²，但F统计量显著提高
+            - 使用稳健标准误后，部分变量的显著性发生变化
+            - 最终模型使用稳健标准误进行统计推断
+            """)
+        
+        # 模型诊断图
+        st.markdown("---")
+        st.write("**模型诊断可视化**")
+        
+        diagnostics_path = str(REGRESSION_DIAGNOSTICS_IMG)
+        if os.path.exists(diagnostics_path):
+            st.image(diagnostics_path, caption="模型诊断图：残差分析、Q-Q图等", use_container_width=True)
+            st.markdown("""
+            **诊断图说明**:
+            - **残差vs拟合值**: 检查残差的方差齐性
+            - **Q-Q图**: 检查残差的正态性
+            - **标准化残差**: 识别异常值
+            - **Cook距离**: 识别影响模型的高杠杆点
+            """)
+        else:
+            st.warning(f"模型诊断图不存在: {diagnostics_path}")
+    
+    # 标签页3: 系数分析
+    with tab3:
+        st.subheader("系数重要性分析")
+        
+        # 系数重要性图
+        coeff_importance_path = str(REGRESSION_COEFF_IMPORTANCE_IMG)
+        if os.path.exists(coeff_importance_path):
+            st.image(coeff_importance_path, caption="系数重要性可视化", use_container_width=True)
+        else:
+            st.warning(f"系数重要性图不存在: {coeff_importance_path}")
+        
+        st.markdown("---")
+        
+        # 实际vs预测值图
+        actual_vs_pred_path = str(REGRESSION_ACTUAL_VS_PRED_IMG)
+        if os.path.exists(actual_vs_pred_path):
+            st.image(actual_vs_pred_path, caption="实际值 vs 预测值对比", use_container_width=True)
+            st.markdown("""
+            **说明**: 
+            - 该图展示了模型预测值与实际观测值的对比
+            - 点越接近对角线，说明预测越准确
+            - R² = 0.8041 表示模型解释了约80.4%的方差
+            """)
+        else:
+            st.warning(f"实际vs预测值图不存在: {actual_vs_pred_path}")
+        
+        # 关键变量解释
+        if regression_coeff:
+            st.markdown("---")
+            st.write("**关键显著变量解释**")
+            
+            key_vars_explanation = {
+                'log_channel_avg_views': {
+                    '系数': '0.9473',
+                    '解释': '频道平均播放量（对数）每增加1个单位，视频播放量（对数）平均增加0.9473个单位。这是最重要的预测因子。'
+                },
+                'log_channel_activity': {
+                    '系数': '-0.0936',
+                    '解释': '频道活跃度（对数）每增加1个单位，视频播放量（对数）平均减少0.0936个单位。这可能是因为活跃度高的频道视频数量多，单个视频的平均播放量相对较低。'
+                },
+                'category_29': {
+                    '系数': '0.1475',
+                    '解释': '属于类别29的视频，播放量（对数）平均比参照组（category_24）高0.1475个单位。'
+                },
+                'category_19': {
+                    '系数': '0.1138',
+                    '解释': '属于类别19的视频，播放量（对数）平均比参照组高0.1138个单位。'
+                },
+                'category_23': {
+                    '系数': '0.0592',
+                    '解释': '属于类别23的视频，播放量（对数）平均比参照组高0.0592个单位。'
+                },
+                'category_20': {
+                    '系数': '0.0391',
+                    '解释': '属于类别20的视频，播放量（对数）平均比参照组高0.0391个单位。'
+                },
+                'log_desc_length': {
+                    '系数': '0.0091',
+                    '解释': '描述长度（对数）每增加1个单位，视频播放量（对数）平均增加0.0091个单位。'
+                }
+            }
+            
+            for var_name, var_info in key_vars_explanation.items():
+                with st.expander(f"变量: {var_name}"):
+                    st.markdown(f"**系数**: {var_info['系数']}")
+                    st.markdown(f"**解释**: {var_info['解释']}")
+    
+    # 标签页4: 预测结果
+    with tab4:
+        st.subheader("预测结果与区间估计")
+        
+        # 预测结果对比
+        st.write("**不同场景下的预测结果对比**")
+        
+        prediction_comparison_data = {
+            '指标': [
+                '预测播放量',
+                '95%置信区间下限',
+                '95%置信区间上限',
+                '区间宽度'
+            ],
+            '高潜力场景': [
+                '1,909,071',
+                '754,856',
+                '4,828,143',
+                '4,073,287'
+            ],
+            '典型场景': [
+                '842,152',
+                '333,056',
+                '2,129,428',
+                '1,796,372'
+            ],
+            '低潜力场景': [
+                '420,619',
+                '166,223',
+                '1,064,354',
+                '898,131'
+            ]
+        }
+        pred_comparison_df = pd.DataFrame(prediction_comparison_data)
+        st.dataframe(pred_comparison_df, use_container_width=True, hide_index=True)
+        
+        st.markdown("""
+        **场景说明**:
+        - **高潜力场景**: 使用75分位数特征值（高潜力特征）
+        - **典型场景**: 使用中位数特征值
+        - **低潜力场景**: 使用25分位数特征值（低潜力特征）
+        
+        **预测区间说明**:
+        - 预测区间考虑了模型的不确定性
+        - 区间宽度反映了预测的不确定性程度
+        - 高潜力场景的预测区间更宽，说明高播放量预测的不确定性更大
+        """)
+        
+        st.markdown("---")
+        
+        # 预测对比图
+        pred_comparison_path = str(REGRESSION_PREDICTION_COMPARISON_IMG)
+        if os.path.exists(pred_comparison_path):
+            st.image(pred_comparison_path, caption="不同场景预测结果对比", use_container_width=True)
+        else:
+            st.warning(f"预测对比图不存在: {pred_comparison_path}")
+        
+        st.markdown("---")
+        
+        # 预测结果图
+        pred_result_path = str(REGRESSION_PREDICTION_RESULT_IMG)
+        if os.path.exists(pred_result_path):
+            st.image(pred_result_path, caption="预测结果图（含预测区间）", use_container_width=True)
+            st.markdown("""
+            **说明**: 
+            - 该图展示了点预测和95%预测区间
+            - 预测区间提供了预测的不确定性范围
+            - 在原始尺度（views）上，预测区间通常是不对称的
+            """)
+        else:
+            st.warning(f"预测结果图不存在: {pred_result_path}")
+        
+        # 对数尺度预测结果
+        st.markdown("---")
+        st.write("**对数尺度预测结果**")
+        
+        log_prediction_data = {
+            '场景': ['高潜力', '典型', '低潜力'],
+            '点预测 (log_views)': ['14.4621', '13.6437', '12.9495'],
+            '95%区间下限 (log_views)': ['13.5343', '12.7161', '12.0211'],
+            '95%区间上限 (log_views)': ['15.3900', '14.5714', '13.8779']
+        }
+        log_pred_df = pd.DataFrame(log_prediction_data)
+        st.dataframe(log_pred_df, use_container_width=True, hide_index=True)
+    
+    # 标签页5: 模型系数表
+    with tab5:
+        st.subheader("完整模型系数表")
+        
+        if not regression_coeff_df.empty:
+            # 显示完整系数表
+            st.write("**所有变量系数（稳健标准误模型）**")
+            
+            # 格式化显示
+            display_df = regression_coeff_df.copy()
+            display_df.columns = ['变量', '系数', '标准误', 'P值', '是否显著']
+            
+            # 添加显著性标记
+            display_df['显著性'] = display_df['是否显著'].apply(lambda x: '是' if x else '否')
+            
+            # 重新排列列
+            display_df = display_df[['变量', '系数', '标准误', 'P值', '显著性']]
+            
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+            
+            st.markdown("---")
+            
+            # 统计信息
+            total_vars = len(display_df)
+            significant_vars = display_df['显著性'].value_counts().get('是', 0)
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("总变量数", total_vars)
+            with col2:
+                st.metric("显著变量数 (p<0.05)", significant_vars)
+            
+            st.markdown("---")
+            
+            # 变量分类统计
+            st.write("**变量分类统计**")
+            
+            category_vars = len([v for v in display_df['变量'] if 'category' in v])
+            period_vars = len([v for v in display_df['变量'] if 'period' in v or v == 'is_weekend'])
+            title_vars = len([v for v in display_df['变量'] if 'title' in v])
+            channel_vars = len([v for v in display_df['变量'] if 'channel' in v])
+            text_vars = len([v for v in display_df['变量'] if 'desc' in v or 'tag' in v])
+            
+            var_category_data = {
+                '变量类别': [
+                    '类别特征 (category)',
+                    '时间特征 (period, is_weekend)',
+                    '标题特征 (title)',
+                    '频道特征 (channel)',
+                    '文本衍生特征 (desc, tag)',
+                    '截距项 (Intercept)'
+                ],
+                '数量': [
+                    category_vars,
+                    period_vars,
+                    title_vars,
+                    channel_vars,
+                    text_vars,
+                    1
+                ]
+            }
+            var_cat_df = pd.DataFrame(var_category_data)
+            st.dataframe(var_cat_df, use_container_width=True, hide_index=True)
+        else:
+            st.warning("无法加载回归模型系数表")
+    
+    # 标签页6: 播放量预测
+    with tab6:
+        st.subheader("视频播放量预测")
+        st.markdown("输入视频的元数据特征，系统将使用回归模型预测该视频的播放量。")
+        
+        if regression_coeff is None:
+            st.error("无法加载回归模型系数，请确保模型文件存在。")
+        else:
+            # 创建输入表单
+            with st.form("regression_prediction_form"):
+                st.write("**视频特征输入**")
+                
+                # 分为多个列布局
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("##### 类别特征")
+                    # 类别选择（category_24是参照组，不显示）
+                    category_options = {
+                        "category_1": "类别1",
+                        "category_2": "类别2",
+                        "category_10": "类别10",
+                        "category_15": "类别15",
+                        "category_17": "类别17",
+                        "category_19": "类别19",
+                        "category_20": "类别20",
+                        "category_22": "类别22",
+                        "category_23": "类别23",
+                        "category_25": "类别25",
+                        "category_26": "类别26",
+                        "category_27": "类别27",
+                        "category_28": "类别28",
+                        "category_29": "类别29",
+                        "category_24 (参照组)": None
+                    }
+                    selected_category = st.selectbox(
+                        "视频类别",
+                        options=list(category_options.keys()),
+                        index=len(category_options)-1,  # 默认选择参照组
+                        help="category_24为参照组，选择其他类别将使用对应的系数"
+                    )
+                    
+                    st.markdown("##### 时间特征")
+                    period = st.selectbox(
+                        "发布时间段",
+                        options=["period_Afternoon (参照组)", "period_Dawn", "period_Morning", "period_Evening"],
+                        index=0,
+                        help="period_Afternoon为参照组"
+                    )
+                    
+                    is_weekend = st.selectbox(
+                        "是否在周末发布",
+                        options=[0, 1],
+                        format_func=lambda x: "是" if x == 1 else "否",
+                        index=0
+                    )
+                    
+                    st.markdown("##### 标题特征")
+                    title_upper_ratio = st.slider(
+                        "标题大写字母占比",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=0.1,
+                        step=0.01,
+                        help="标题中大写字母的比例（0-1之间）"
+                    )
+                    
+                    title_has_punct = st.selectbox(
+                        "标题是否包含标点符号（问号/感叹号）",
+                        options=[0, 1],
+                        format_func=lambda x: "是" if x == 1 else "否",
+                        index=0
+                    )
+                
+                with col2:
+                    st.markdown("##### 频道特征")
+                    channel_activity = st.number_input(
+                        "频道活跃度（该频道在样本中的出现频次）",
+                        min_value=1,
+                        value=10,
+                        step=1,
+                        help="频道在数据集中的视频数量"
+                    )
+                    
+                    channel_avg_views = st.number_input(
+                        "频道平均播放量",
+                        min_value=1,
+                        value=1000000,
+                        step=10000,
+                        help="该频道视频的平均播放量"
+                    )
+                    
+                    channel_avg_comment_count = st.number_input(
+                        "频道平均评论数",
+                        min_value=0,
+                        value=5000,
+                        step=100,
+                        help="该频道视频的平均评论数。注意：该特征的系数为 -2.570383，值过大会导致预测结果不合理。建议范围：0-10,000"
+                    )
+                    
+                    st.markdown("##### 文本特征")
+                    tags_count = st.number_input(
+                        "标签数量",
+                        min_value=0,
+                        value=10,
+                        step=1,
+                        help="视频标签的数量"
+                    )
+                    
+                    tag_density = st.slider(
+                        "标签密度",
+                        min_value=0.0,
+                        max_value=1.0,
+                        value=0.5,
+                        step=0.01,
+                        help="标签密度（0-1之间）"
+                    )
+                    
+                    desc_length = st.number_input(
+                        "描述长度（字符数）",
+                        min_value=0,
+                        value=500,
+                        step=10,
+                        help="视频描述的文字长度"
+                    )
+                    
+                    desc_has_timestamp = st.selectbox(
+                        "描述中是否包含时间戳",
+                        options=[0, 1],
+                        format_func=lambda x: "是" if x == 1 else "否",
+                        index=0
+                    )
+                    
+                    desc_keyword_count = st.number_input(
+                        "描述中关键词数量",
+                        min_value=0,
+                        value=5,
+                        step=1,
+                        help="描述中包含特定关键词的数量"
+                    )
+                
+                submitted = st.form_submit_button("预测播放量", use_container_width=True)
+                
+                if submitted:
+                    try:
+                        # 计算预测值
+                        intercept = regression_coeff.get('intercept', 0)
+                        coefficients = regression_coeff.get('coefficients', {})
+                        
+                        # 初始化预测值
+                        log_views_pred = intercept
+                        contribution_details = []  # 用于调试和显示
+                        
+                        # 处理类别特征
+                        if selected_category != "category_24 (参照组)":
+                            category_key = selected_category + "[T.True]"
+                            if category_key in coefficients:
+                                coef_value = coefficients[category_key]['coefficient']
+                                log_views_pred += coef_value
+                                contribution_details.append(f"{category_key}: {coef_value:.6f}")
+                        
+                        # 处理时间特征
+                        if period == "period_Dawn":
+                            coef_value = coefficients.get('period_Dawn[T.True]', {}).get('coefficient', 0)
+                            log_views_pred += coef_value
+                            if coef_value != 0:
+                                contribution_details.append(f"period_Dawn[T.True]: {coef_value:.6f}")
+                        elif period == "period_Morning":
+                            coef_value = coefficients.get('period_Morning[T.True]', {}).get('coefficient', 0)
+                            log_views_pred += coef_value
+                            if coef_value != 0:
+                                contribution_details.append(f"period_Morning[T.True]: {coef_value:.6f}")
+                        elif period == "period_Evening":
+                            coef_value = coefficients.get('period_Evening[T.True]', {}).get('coefficient', 0)
+                            log_views_pred += coef_value
+                            if coef_value != 0:
+                                contribution_details.append(f"period_Evening[T.True]: {coef_value:.6f}")
+                        # period_Afternoon是参照组，系数为0
+                        
+                        if is_weekend == 1:
+                            coef_value = coefficients.get('is_weekend[T.True]', {}).get('coefficient', 0)
+                            log_views_pred += coef_value
+                            if coef_value != 0:
+                                contribution_details.append(f"is_weekend[T.True]: {coef_value:.6f}")
+                        
+                        # 处理标题特征
+                        title_upper_coef = coefficients.get('title_upper_ratio', {}).get('coefficient', 0)
+                        title_upper_contrib = title_upper_coef * title_upper_ratio
+                        log_views_pred += title_upper_contrib
+                        if title_upper_contrib != 0:
+                            contribution_details.append(f"title_upper_ratio: {title_upper_coef:.6f} * {title_upper_ratio:.2f} = {title_upper_contrib:.6f}")
+                        
+                        if title_has_punct == 1:
+                            coef_value = coefficients.get('title_has_punct[T.True]', {}).get('coefficient', 0)
+                            log_views_pred += coef_value
+                            if coef_value != 0:
+                                contribution_details.append(f"title_has_punct[T.True]: {coef_value:.6f}")
+                        
+                        # 处理频道特征（需要log变换）
+                        log_channel_activity = np.log1p(channel_activity)
+                        log_channel_avg_views = np.log1p(channel_avg_views)
+                        log_channel_avg_comment_count = np.log1p(channel_avg_comment_count)
+                        
+                        channel_activity_coef = coefficients.get('log_channel_activity', {}).get('coefficient', 0)
+                        channel_activity_contrib = channel_activity_coef * log_channel_activity
+                        log_views_pred += channel_activity_contrib
+                        if channel_activity_contrib != 0:
+                            contribution_details.append(f"log_channel_activity: {channel_activity_coef:.6f} * {log_channel_activity:.4f} = {channel_activity_contrib:.6f}")
+                        
+                        channel_avg_views_coef = coefficients.get('log_channel_avg_views', {}).get('coefficient', 0)
+                        channel_avg_views_contrib = channel_avg_views_coef * log_channel_avg_views
+                        log_views_pred += channel_avg_views_contrib
+                        if channel_avg_views_contrib != 0:
+                            contribution_details.append(f"log_channel_avg_views: {channel_avg_views_coef:.6f} * {log_channel_avg_views:.4f} = {channel_avg_views_contrib:.6f}")
+                        
+                        channel_comment_coef = coefficients.get('log_channel_avg_comment_count', {}).get('coefficient', 0)
+                        channel_comment_contrib = channel_comment_coef * log_channel_avg_comment_count
+                        log_views_pred += channel_comment_contrib
+                        if channel_comment_contrib != 0:
+                            contribution_details.append(f"log_channel_avg_comment_count: {channel_comment_coef:.6f} * {log_channel_avg_comment_count:.4f} = {channel_comment_contrib:.6f}")
+                        
+                        # 处理文本特征
+                        log_tags_count = np.log1p(tags_count)
+                        log_desc_length = np.log1p(desc_length)
+                        
+                        tags_count_coef = coefficients.get('log_tags_count', {}).get('coefficient', 0)
+                        tags_count_contrib = tags_count_coef * log_tags_count
+                        log_views_pred += tags_count_contrib
+                        if tags_count_contrib != 0:
+                            contribution_details.append(f"log_tags_count: {tags_count_coef:.6f} * {log_tags_count:.4f} = {tags_count_contrib:.6f}")
+                        
+                        tag_density_coef = coefficients.get('tag_density', {}).get('coefficient', 0)
+                        tag_density_contrib = tag_density_coef * tag_density
+                        log_views_pred += tag_density_contrib
+                        if tag_density_contrib != 0:
+                            contribution_details.append(f"tag_density: {tag_density_coef:.6f} * {tag_density:.2f} = {tag_density_contrib:.6f}")
+                        
+                        desc_length_coef = coefficients.get('log_desc_length', {}).get('coefficient', 0)
+                        desc_length_contrib = desc_length_coef * log_desc_length
+                        log_views_pred += desc_length_contrib
+                        if desc_length_contrib != 0:
+                            contribution_details.append(f"log_desc_length: {desc_length_coef:.6f} * {log_desc_length:.4f} = {desc_length_contrib:.6f}")
+                        
+                        if desc_has_timestamp == 1:
+                            # 注意：desc_has_timestamp的键名是"desc_has_timestamp"而不是"desc_has_timestamp[T.True]"
+                            coef_value = coefficients.get('desc_has_timestamp', {}).get('coefficient', 0)
+                            log_views_pred += coef_value
+                            if coef_value != 0:
+                                contribution_details.append(f"desc_has_timestamp: {coef_value:.6f}")
+                        
+                        desc_keyword_coef = coefficients.get('desc_keyword_count', {}).get('coefficient', 0)
+                        desc_keyword_contrib = desc_keyword_coef * desc_keyword_count
+                        log_views_pred += desc_keyword_contrib
+                        if desc_keyword_contrib != 0:
+                            contribution_details.append(f"desc_keyword_count: {desc_keyword_coef:.6f} * {desc_keyword_count} = {desc_keyword_contrib:.6f}")
+                        
+                        # 转换回原始尺度（因为使用的是log1p变换）
+                        # 注意：如果 log_views_pred 是负数，expm1 会得到接近 -1 的值，这是不合理的
+                        # 应该使用 exp 而不是 expm1，因为模型预测的是 log(views+1)
+                        if log_views_pred < 0:
+                            st.warning(f"⚠️ 警告：对数预测值为负数 ({log_views_pred:.4f})，这可能导致不合理的预测结果。")
+                            st.info("可能的原因：输入的特征值超出了训练数据的范围，或者某些特征值过大。")
+                            # 即使为负数，也尝试转换（虽然不合理）
+                            views_pred = max(0, np.expm1(log_views_pred))
+                        else:
+                            views_pred = np.expm1(log_views_pred)
+                        
+                        # 显示预测结果
+                        st.markdown("---")
+                        st.subheader("预测结果")
+                        
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.metric("截距 (Intercept)", f"{intercept:.4f}")
+                        with col2:
+                            st.metric("预测播放量（对数尺度）", f"{log_views_pred:.4f}")
+                        with col3:
+                            if views_pred < 0:
+                                st.metric("预测播放量", "不合理", delta="负数", delta_color="inverse")
+                            else:
+                                st.metric("预测播放量", f"{views_pred:,.0f}")
+                        
+                        # 显示计算过程（调试信息）
+                        with st.expander("查看详细计算过程", expanded=False):
+                            st.write("**计算步骤:**")
+                            st.write(f"1. 起始值（截距）: {intercept:.6f}")
+                            if contribution_details:
+                                st.write("2. 特征贡献:")
+                                for i, detail in enumerate(contribution_details, 1):
+                                    st.write(f"   {i+1}. {detail}")
+                            st.write(f"3. 最终对数预测值: {log_views_pred:.6f}")
+                            if log_views_pred < 0:
+                                st.warning(f"⚠️ 对数预测值为负数，expm1({log_views_pred:.6f}) = {np.expm1(log_views_pred):.0f} (不合理)")
+                                st.info("**建议**: 检查输入值，特别是 `log_channel_avg_comment_count` 的值可能过大。该特征的系数为 -2.570383，当值较大时会产生很大的负贡献。")
+                            else:
+                                st.write(f"4. 转换回原始尺度: expm1({log_views_pred:.6f}) = {views_pred:,.0f}")
+                            
+                            # 显示各特征贡献的汇总
+                            st.markdown("---")
+                            st.write("**特征贡献汇总:**")
+                            positive_contrib = sum([float(detail.split('=')[-1].strip()) for detail in contribution_details if '=' in detail and float(detail.split('=')[-1].strip()) > 0])
+                            negative_contrib = sum([float(detail.split('=')[-1].strip()) for detail in contribution_details if '=' in detail and float(detail.split('=')[-1].strip()) < 0])
+                            st.write(f"- 正贡献总和: {positive_contrib:.4f}")
+                            st.write(f"- 负贡献总和: {negative_contrib:.4f}")
+                            st.write(f"- 净贡献: {positive_contrib + negative_contrib:.4f}")
+                            st.write(f"- 最终预测值: {intercept:.4f} + {positive_contrib + negative_contrib:.4f} = {log_views_pred:.4f}")
+                        
+                        # 预测范围（简化版本）
+                        st.markdown("---")
+                        st.write("**预测范围（近似）**")
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("95%置信区间下限（近似）", f"{views_pred*0.5:,.0f}")
+                        with col2:
+                            st.metric("95%置信区间上限（近似）", f"{views_pred*2.0:,.0f}")
+                        st.caption("注意：这是简化的预测区间，实际预测区间需要考虑模型的标准误和残差方差")
+                        
+                        # 可视化预测结果
+                        st.markdown("---")
+                        st.write("**预测结果可视化**")
+                        
+                        fig, ax = plt.subplots(figsize=(10, 4))
+                        ax.barh([0], [views_pred], color='#51cf66', alpha=0.7, height=0.5)
+                        ax.set_xlabel('预测播放量', fontsize=12)
+                        ax.set_title('视频播放量预测结果', fontsize=14, fontweight='bold')
+                        ax.set_yticks([])
+                        ax.set_xlim(0, max(views_pred * 1.2, 1000000))
+                        
+                        # 添加数值标签
+                        ax.text(views_pred, 0, f'{views_pred:,.0f}', 
+                               ha='left', va='center', fontsize=11, fontweight='bold',
+                               bbox=dict(boxstyle='round,pad=0.3', facecolor='white', alpha=0.8))
+                        
+                        plt.tight_layout()
+                        st.pyplot(fig)
+                        plt.close(fig)
+                        
+                        # 显示输入特征摘要
+                        st.markdown("---")
+                        st.write("**输入特征摘要**")
+                        
+                        feature_summary = {
+                            '特征类别': [
+                                '类别',
+                                '发布时间段',
+                                '是否周末',
+                                '标题大写占比',
+                                '标题含标点',
+                                '频道活跃度',
+                                '频道平均播放量',
+                                '频道平均评论数',
+                                '标签数量',
+                                '标签密度',
+                                '描述长度',
+                                '描述含时间戳',
+                                '描述关键词数'
+                            ],
+                            '输入值': [
+                                selected_category,
+                                period,
+                                "是" if is_weekend == 1 else "否",
+                                f"{title_upper_ratio:.2f}",
+                                "是" if title_has_punct == 1 else "否",
+                                f"{channel_activity:,}",
+                                f"{channel_avg_views:,}",
+                                f"{channel_avg_comment_count:,}",
+                                f"{tags_count}",
+                                f"{tag_density:.2f}",
+                                f"{desc_length}",
+                                "是" if desc_has_timestamp == 1 else "否",
+                                f"{desc_keyword_count}"
+                            ]
+                        }
+                        feature_summary_df = pd.DataFrame(feature_summary)
+                        st.dataframe(feature_summary_df, use_container_width=True, hide_index=True)
+                        
+                        # 显示重要提示
+                        st.info("""
+                        **提示**:
+                        - 预测结果基于回归模型，R² = 0.8041
+                        - 预测值存在不确定性，实际播放量可能因多种因素而有所不同
+                        - 模型使用对数变换，预测区间在原始尺度上可能不对称
+                        - 最重要的预测因子是频道平均播放量（log_channel_avg_views，系数=0.9473）
+                        - **注意**: `log_channel_avg_comment_count` 的系数为 -2.570383（不显著，p=0.081），值过大会导致预测结果不合理
+                        - 如果预测值为负数，请检查输入值是否在合理范围内
+                        """)
+                        
+                        # 如果预测值为负数，提供更详细的建议
+                        if log_views_pred < 0:
+                            st.error("""
+                            **预测结果不合理的原因分析**:
+                            
+                            1. **`log_channel_avg_comment_count` 贡献过大**: 
+                               - 系数: -2.570383
+                               - 当前值: {:.2f} (对应原始值: {:.0f})
+                               - 贡献: {:.2f}
+                               - 建议: 降低频道平均评论数的输入值（建议 < 10,000）
+                            
+                            2. **其他可能原因**:
+                               - 输入的特征值超出了训练数据的范围
+                               - 某些特征组合在训练数据中不常见
+                            
+                            **建议**: 使用更接近训练数据中位数的特征值进行预测。
+                            """.format(
+                                log_channel_avg_comment_count,
+                                channel_avg_comment_count,
+                                channel_comment_contrib
+                            ))
+                        
+                    except Exception as e:
+                        st.error(f"预测失败: {str(e)}")
+                        st.exception(e)
 
 if __name__ == "__main__":
     main()
