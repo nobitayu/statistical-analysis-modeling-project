@@ -1,21 +1,5 @@
 # -*- coding: utf-8 -*-
-"""
-训练与保存预测未发布视频是否会热门的逻辑回归模型（不使用文本特征版本）
-Usage:
-    python train_trend_model_no_text.py
 
-功能:
-- 读取已处理并平衡的数据: youtube_data_balanced_5000.csv
-- 构建预处理 pipeline (仅使用数值和类别特征，不使用文本)
-- 训练 LogisticRegression 模型 (GridSearchCV 调参)
-- 评估并保存模型 pipeline (joblib)
-- 提供 predict_unpublished 接口
-
-与原始版本的区别:
-- 完全不使用文本特征（title）
-- 仅使用数值特征和类别特征
-- 可以对比文本特征对模型性能的影响
-"""
 import os
 import joblib
 import pandas as pd
@@ -35,9 +19,9 @@ RND = 42
 
 SCRIPT_DIR = os.path.dirname(__file__)
 DATA_FILE = os.path.join(SCRIPT_DIR, '..', '..', 'process', 'youtube_data_balanced_5000.csv')
-MODEL_OUT = os.path.join(SCRIPT_DIR, 'model_pipeline_no_text.joblib')
+MODEL_OUT = os.path.join(SCRIPT_DIR, 'model_pipeline.joblib')
 
-# 仅使用数值和类别特征，不使用文本
+
 NUMERIC_FEATURES = ['title_length', 'question_exclamation_count', 'tag_count', 'hour', 'tags_in_title', 'is_weekend']
 CATEGORICAL_FEATURES = ['time_period', 'category']
 TARGET = 'is_trending'
@@ -131,8 +115,8 @@ def train_and_evaluate(df, save_model=True):
     disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Non-trending', 'Trending'])
     fig, ax = plt.subplots(figsize=(5, 5))
     disp.plot(ax=ax)
-    plt.title('Confusion Matrix (No Text Features)')
-    plt.savefig(os.path.join(SCRIPT_DIR, 'confusion_matrix_no_text.png'), dpi=200, bbox_inches='tight')
+    plt.title('Confusion Matrix')
+    plt.savefig(os.path.join(SCRIPT_DIR, 'confusion_matrix.png'), dpi=200, bbox_inches='tight')
     plt.close()
 
     fpr, tpr, _ = roc_curve(y_test, y_prob)
@@ -141,9 +125,9 @@ def train_and_evaluate(df, save_model=True):
     plt.plot([0, 1], [0, 1], '--', color='grey')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curve (No Text Features)')
+    plt.title('ROC Curve')
     plt.legend()
-    plt.savefig(os.path.join(SCRIPT_DIR, 'roc_curve_no_text.png'), dpi=200, bbox_inches='tight')
+    plt.savefig(os.path.join(SCRIPT_DIR, 'roc_curve.png'), dpi=200, bbox_inches='tight')
     plt.close()
 
     return best_model, (X_test, y_test, y_pred, y_prob, {
@@ -198,7 +182,7 @@ def extract_feature_importance(model):
 def predict_unpublished(input_data, model_path=MODEL_OUT):
     """
     对未发布视频做预测。
-    input_data: dict 或 pandas.DataFrame，包含需要的特征（不需要title）
+    input_data: dict 或 pandas.DataFrame，包含需要的特征
     返回: DataFrame 包含原始输入、预测概率和预测标签
     """
     if isinstance(input_data, dict):
@@ -228,12 +212,12 @@ def main():
     X_test, y_test, y_pred, y_prob, metrics = eval_data
     
     print('\n训练与评估完成。')
-    print(f"输出文件: {MODEL_OUT}, confusion_matrix_no_text.png, roc_curve_no_text.png")
+    print(f"输出文件: {MODEL_OUT}, confusion_matrix.png, roc_curve.png")
     
     # 提取特征重要性
     print("\n提取特征重要性...")
     df_importance = extract_feature_importance(model)
-    importance_file = os.path.join(SCRIPT_DIR, 'feature_importance_no_text.csv')
+    importance_file = os.path.join(SCRIPT_DIR, 'feature_importance.csv')
     df_importance.to_csv(importance_file, index=False, encoding='utf-8-sig')
     print(f"特征重要性已保存到: {importance_file}")
     
@@ -244,14 +228,14 @@ def main():
     # 保存一个示例预测（从测试集随机取）
     example = X_test.sample(5, random_state=RND)
     example_res = predict_unpublished(example)
-    example_file = os.path.join(SCRIPT_DIR, 'example_predictions_no_text.csv')
+    example_file = os.path.join(SCRIPT_DIR, 'example_predictions.csv')
     example_res.to_csv(example_file, index=False, encoding='utf-8-sig')
     print(f'\n示例预测已保存为: {example_file}')
     
     # 保存评估指标
-    metrics_file = os.path.join(SCRIPT_DIR, 'metrics_no_text.txt')
+    metrics_file = os.path.join(SCRIPT_DIR, 'metrics.txt')
     with open(metrics_file, 'w', encoding='utf-8') as f:
-        f.write("模型评估指标（不使用文本特征）\n")
+        f.write("模型评估指标\n")
         f.write("="*50 + "\n")
         f.write(f"Accuracy:  {metrics['accuracy']:.4f}\n")
         f.write(f"Precision: {metrics['precision']:.4f}\n")

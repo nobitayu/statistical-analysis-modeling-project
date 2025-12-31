@@ -1,14 +1,8 @@
 # -*- coding: utf-8 -*-
-"""优化不使用文本特征模型的分类阈值
-
-用法:
-    python optimize_threshold.py
-
-功能:
+"""
 - 从已保存的模型加载
 - 在测试数据上计算预测概率
-- 在多个阈值上搜索最佳阈值（基于 F1、Youden 等指标）
-- 生成并保存 PR 曲线、F1-vs-threshold 曲线、混淆矩阵图和报告（JSON）
+- 在多个阈值上搜索最佳阈值
 """
 import argparse
 import json
@@ -33,7 +27,7 @@ from sklearn.metrics import (
 )
 
 SCRIPT_DIR = os.path.dirname(__file__)
-MODEL_PATH = os.path.join(SCRIPT_DIR, 'model_pipeline_no_text.joblib')
+MODEL_PATH = os.path.join(SCRIPT_DIR, 'model_pipeline.joblib')
 DATA_FILE = os.path.join(SCRIPT_DIR, '..', '..', 'process', 'youtube_data_balanced_5000.csv')
 OUTPUT_DIR = os.path.join(SCRIPT_DIR, 'optimize_results')
 
@@ -94,7 +88,7 @@ def plot_precision_recall(probs: np.ndarray, y_true: np.ndarray, out_path: str):
     plt.plot(recall, precision, label="Precision-Recall")
     plt.xlabel("Recall")
     plt.ylabel("Precision")
-    plt.title("Precision-Recall Curve (No Text Features)")
+    plt.title("Precision-Recall Curve")
     plt.grid(True)
     plt.legend()
     plt.tight_layout()
@@ -111,7 +105,7 @@ def plot_metric_vs_threshold(df_metrics: pd.DataFrame, out_path: str):
     plt.plot(df_metrics["threshold"], df_metrics["youden"], label="Youden")
     plt.xlabel("Threshold")
     plt.ylabel("Metric")
-    plt.title("Metrics vs Threshold (No Text Features)")
+    plt.title("Metrics vs Threshold")
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -128,7 +122,7 @@ def plot_roc_curve(probs: np.ndarray, y_true: np.ndarray, out_path: str):
     plt.plot([0, 1], [0, 1], '--', color='grey')
     plt.xlabel('False Positive Rate')
     plt.ylabel('True Positive Rate')
-    plt.title('ROC Curve (No Text Features)')
+    plt.title('ROC Curve')
     plt.legend()
     plt.grid(True)
     plt.tight_layout()
@@ -141,7 +135,7 @@ def save_confusion_matrix(y_true: np.ndarray, y_pred: np.ndarray, out_path: str)
     cm = confusion_matrix(y_true, y_pred)
     plt.figure(figsize=(4, 4))
     plt.imshow(cm, interpolation="nearest", cmap=plt.cm.Blues)
-    plt.title("Confusion Matrix (No Text Features)")
+    plt.title("Confusion Matrix")
     plt.colorbar()
     tick_marks = np.arange(2)
     plt.xticks(tick_marks, ["not_trend", "trend"])
@@ -270,7 +264,7 @@ def run(args):
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="Optimize classification threshold for model without text features")
+    p = argparse.ArgumentParser(description="Optimize classification threshold for model")
     p.add_argument("--model", default=MODEL_PATH, help="path to saved model pipeline (joblib)")
     p.add_argument("--data", default=DATA_FILE, help="path to CSV with features + target")
     p.add_argument("--target", default="is_trending", help="name of target column in CSV")
