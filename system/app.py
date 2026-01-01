@@ -17,6 +17,7 @@ from sklearn.metrics import (
     precision_recall_curve, precision_score, recall_score, f1_score, accuracy_score
 )
 from sklearn.model_selection import train_test_split
+from PIL import Image
 
 # 设置页面配置
 st.set_page_config(
@@ -53,6 +54,16 @@ METRICS_FILE = MODEL_DIR / "metrics.txt"
 FEATURE_IMPORTANCE_FILE = MODEL_DIR / "feature_importance.csv"
 OPTIMIZE_RESULTS_DIR = MODEL_DIR / "optimize_results"
 ANALYSIS_IMAGE_FILE = BASE_DIR / "process" / "youtube_analysis_balanced_5000.png"
+DISTRIBUTION_ORIGINAL_FILE = BASE_DIR / "process" / "distribution_original.png"
+DISTRIBUTION_TRANSFORMED_FILE = BASE_DIR / "process" / "distribution_transformed.png"
+TRANSFORMATION_STATS_FILE = BASE_DIR / "process" / "transformation_stats.png"
+VIS_BOXPLOT_FILE = BASE_DIR / "process" / "1_log_view_count_boxplot.png"
+VIS_CATEGORY_FILE = BASE_DIR / "process" / "2_category_pie_chart.png"
+VIS_TAGS_FILE = BASE_DIR / "process" / "3_top_20_tags_bar.png"
+VIS_TITLE_UPPER_FILE = BASE_DIR / "process" / "4_upper_ratio_vs_views.png"
+VIS_TAG_RATIO_FILE = BASE_DIR / "process" / "5_popular_tag_ratio_vs_views.png"
+VIS_TAG_COUNT_FILE = BASE_DIR / "process" / "6_tags_count_vs_views.png"
+VIS_PUBLISH_TIME_FILE = BASE_DIR / "process" / "7_time_analysis_views.png"
 
 # 加载数据
 @st.cache_data
@@ -504,7 +515,13 @@ def show_classification_data_analysis():
         image_path = str(ANALYSIS_IMAGE_FILE)
         if os.path.exists(image_path):
             # 显示图片
-            st.image(image_path, caption="YouTube视频特征分析 (热门 vs 非热门各2500条)", use_container_width=True)
+            try:
+                # 尝试使用PIL加载图片，这样可以避免某些路径编码问题
+                img = Image.open(image_path)
+                st.image(img, caption="YouTube视频特征分析 (热门 vs 非热门各2500条)", use_container_width=True)
+            except Exception as e:
+                st.error(f"加载图片出错: {e}")
+                st.info(f"图片路径: {image_path}")
             
             # 图片说明
             st.markdown("""
@@ -593,14 +610,256 @@ def show_regression_data_analysis():
     """回归数据分析页面"""
     st.header("回归数据分析")
     
-    st.info("回归数据分析部分正在开发中，敬请期待。")
+    # 分两个子页面：数据处理 和 数据可视化
+    tab1, tab2 = st.tabs(["数据处理", "数据可视化"])
     
-    # 预留位置，后续可以添加回归模型的数据分析内容
-    # 结构可以参考分类数据分析部分：
-    # - 数据分布可视化
-    # - 相关性分析
-    # - 回归诊断图
-    # - 假设检验结果
+    # 第一个子页面：数据处理
+    with tab1:
+        # 定义大字体样式
+        def big_text(text):
+            st.markdown(f'<div style="font-size: 24px; line-height: 1.6;">{text}</div>', unsafe_allow_html=True)
+            
+        # 第一部分：数据筛选与采样
+        st.subheader("数据筛选与采样")
+        st.markdown("""
+        <div style="font-size: 24px; line-height: 1.6;">
+        <p><b>输入</b>: kaggle获取的原始大数据集</p>
+        <p><b>操作</b>:</p>
+        <ul>
+        <li><b>时间筛选</b>: 仅保留 publishedAt 在 2022年的视频。</li>
+        <li><b>趋势筛选</b>: 仅保留进入趋势榜（<code>is_trending = 1</code>）的视频。</li>
+        <li><b>采样</b>: 随机抽取了 5000 条样本。</li>
+        <li><b>缺失值</b>: 清除不开放评论的数据（约占1.1%），因为评论数是进行回归建模的重要特征。</li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+        
+        # 第二部分：基础特征工程
+        st.subheader("基础特征工程")
+        st.markdown("""
+        <div style="font-size: 24px; line-height: 1.6;">
+        <p><b>新增特征</b>:</p>
+        <ul>
+        <li><b>时间特征</b>:
+        <ul>
+        <li><code>period_*</code>: 将发布时间划分为 Dawn/Morning/Afternoon/Evening 并进行 One-Hot 编码。</li>
+        <li><code>is_weekend</code>: 是否在周末发布 (Bool)。</li>
+        </ul>
+        </li>
+        <li><b>分类特征</b>:
+        <ul>
+        <li><code>category_*</code>: 对 categoryId 进行 One-Hot 编码。</li>
+        </ul>
+        </li>
+        <li><b>交互特征</b>:
+        <ul>
+        <li><code>like_rate</code>: 点赞率 (<code>likes / view_count</code>)。</li>
+        <li><code>comment_rate</code>: 评论率 (<code>comment_count / view_count</code>)。</li>
+        </ul>
+        </li>
+        <li><b>标题特征</b>:
+        <ul>
+        <li><code>title_length</code>: 标题长度。</li>
+        <li><code>title_upper_ratio</code>: 标题大写字母占比。</li>
+        <li><code>title_has_punct</code>: 标题是否包含感叹号或问号。</li>
+        </ul>
+        </li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("---")
+
+        # 第三部分：进阶特征工程
+        st.subheader("进阶特征工程")
+        st.markdown("""
+        <div style="font-size: 24px; line-height: 1.6;">
+        <p><b>新增特征</b>:</p>
+        <ul>
+        <li><b>频道特征</b>:
+        <ul>
+        <li><code>channel_activity</code>: 该频道在样本中的出现频次。</li>
+        <li><code>channel_avg_views/like_rate/comment_count</code>: 该频道的平均表现数据。</li>
+        <li><code>channel_name_len</code>: 频道名称长度。</li>
+        <li><code>channel_has_digit</code>: 频道名称是否包含数字。</li>
+        <li><code>channel_has_special</code>: 频道名称是否包含特殊符号。</li>
+        </ul>
+        </li>
+        <li><b>标签特征</b>:
+        <ul>
+        <li><code>tags_count</code>: 视频标签数量。</li>
+        <li><code>tag_density</code>: 标签密度 (如标签总长度 / 描述长度)。</li>
+        <li><code>popular_tag_ratio</code>: 热门标签占比。</li>
+        </ul>
+        </li>
+        <li><b>描述特征</b>:
+        <ul>
+        <li><code>desc_length</code>: 视频描述长度。</li>
+        <li><code>desc_has_youtube_link</code>: 描述中是否包含 YouTube 链接。</li>
+        <li><code>desc_has_timestamp</code>: 描述中是否包含时间戳。</li>
+        <li><code>desc_keyword_count</code>: 描述中包含特定关键词数量。</li>
+        </ul>
+        </li>
+        </ul>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("---")
+        
+        # 第四部分：数据变换与正态化
+        st.subheader("数据变换与正态化")
+        
+        # 图一：原始数据分布
+        image_path_original = str(DISTRIBUTION_ORIGINAL_FILE)
+        if os.path.exists(image_path_original):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(image_path_original, caption="原始数据分布（直方图与Q-Q图）", use_container_width=True)
+        else:
+            st.info("原始数据分布图 (distribution_original.png) 未找到，请将图片放置在 process 目录下。")
+            
+        big_text("""
+        我们通过计算描述性统计指标发现，部分原始数据的偏度（Skewness）极高，呈现典型的“右偏”或“长尾分布”，这意味着极少数头部视频占据了绝大部分流量；同时，极高的峰度（Kurtosis）也揭示了大量极端离群值的存在。 
+        
+        我们为呈现偏态的属性绘制直方图和Q-Q图，发现其直方图呈现出左侧陡峭、右侧长尾的形态，而 Q-Q 图中的散点严重偏离对角红线。针对这一问题，我们对具有严重偏态的数据进行对数变换: $y=\ln(x+1)$
+        """)
+        
+        st.markdown("---")
+        
+        # 图二：变换后数据分布
+        image_path_transformed = str(DISTRIBUTION_TRANSFORMED_FILE)
+        if os.path.exists(image_path_transformed):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(image_path_transformed, caption="变换后数据分布（直方图与Q-Q图）", use_container_width=True)
+        else:
+            st.info("变换后数据分布图 (distribution_transformed.png) 未找到，请将图片放置在 process 目录下。")
+            
+        big_text("""
+        变换后的 `log_view_count` 等指标在直方图上已呈现明显的正态特征，Q-Q 图中的点也开始紧密贴合红线，证明分布已得到显著矫正。
+        """)
+        
+        big_text("""
+        呈现显著偏态的特征进行对数变换前后的偏度、峰度、W值（Shapiro–Wilk正态检验）的相关数据如下:
+        """)
+        
+        # 变换统计数据表图
+        image_path_stats = str(TRANSFORMATION_STATS_FILE)
+        if os.path.exists(image_path_stats):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(image_path_stats, caption="变换统计数据表", use_container_width=True)
+        else:
+            st.info("统计数据图片 (transformation_stats.png) 未找到，已显示为交互式表格。请将图片放置在 process 目录下以显示图片。")
+        
+        # 第五部分：多重共线性检测
+        st.subheader("多重共线性检测")
+        
+        big_text("""
+        为了防止特征间具有高度相关性发生过拟合，我们引入了方差膨胀因子作为核心检测指标。在判读标准上，通常认为 VIF 小于 5 是安全范围，而一旦超过 10 则存在严重共线性风险。对于独热编码的特征，我们从每一组编码特征中主动移除一列作为基准列。中高度相关的特征，我们将其删除或转化。处理后对所有特征计算VIF，结果VIF为前五名的特征如下：
+        """)
+
+        vif_data = [
+            {"排名": 1, "特征名称 (Feature)": "log_likes (点赞数对数)", "VIF 值": 4.18, "共线性程度": "低度相关"},
+            {"排名": 2, "特征名称 (Feature)": "comment_rate (评论率)", "VIF 值": 3.80, "共线性程度": "低度相关"},
+            {"排名": 3, "特征名称 (Feature)": "log_channel_avg_comment_count (频道平均评论数对数)", "VIF 值": 3.79, "共线性程度": "低度相关"},
+            {"排名": 4, "特征名称 (Feature)": "tag_density (标签密度)", "VIF 值": 3.49, "共线性程度": "低度相关"},
+            {"排名": 5, "特征名称 (Feature)": "log_tags_count (标签数量对数)", "VIF 值": 3.47, "共线性程度": "低度相关"}
+        ]
+        st.dataframe(pd.DataFrame(vif_data), use_container_width=True, hide_index=True)
+
+        big_text("结果显示可发现特征均为低度相关，可以用于后续建模")
+
+    # 第二个子页面：数据可视化
+    with tab2:
+        st.subheader("数据可视化分析")
+        
+        # 定义大字体样式
+        def big_text(text):
+            st.markdown(f'<div style="font-size: 24px; line-height: 1.6;">{text}</div>', unsafe_allow_html=True)
+
+        # 图1
+        image_path_boxplot = str(VIS_BOXPLOT_FILE)
+        if os.path.exists(image_path_boxplot):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(image_path_boxplot, use_container_width=True)
+            big_text("1. 播放量经对数变换后已接近正态分布，其分布中位数约为 13.7，且在高位仍存在部分离群值。即便在热门视频内部，流量分布依然遵循一定的规律，极少数头部视频贡献了极高的观测值。")
+        else:
+            st.info(f"图1文件未找到: {VIS_BOXPLOT_FILE.name}，请将图片放置在 process 目录下。")
+
+        st.markdown("---")
+
+        # 图2
+        image_path_category = str(VIS_CATEGORY_FILE)
+        if os.path.exists(image_path_category):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(image_path_category, use_container_width=True)
+            big_text("2. 对视频所属类别进行统计， Gaming (22.3%)、Entertainment (20.4%) 和 Music (14.1%) 是占比最高的三大类别，用户可能更喜欢轻松向的视频。同时验证了对类别特征进行独热编码的必要性，因为不同赛道的流量基数存在显著的结构性差异。")
+        else:
+            st.info(f"图2文件未找到: {VIS_CATEGORY_FILE.name}，请将图片放置在 process 目录下。")
+
+        st.markdown("---")
+
+        # 图3
+        image_path_tags = str(VIS_TAGS_FILE)
+        if os.path.exists(image_path_tags):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(image_path_tags, use_container_width=True)
+            big_text("3. 对视频的标签进行统计，在数量榜中funny,minecraft,comedy,challenge,gaming居于前五，与视频类别相互应证，用户偏好幽默、轻松、与游戏有关的视频。")
+        else:
+            st.info(f"图3文件未找到: {VIS_TAGS_FILE.name}，请将图片放置在 process 目录下。")
+
+        st.markdown("---")
+
+        # 图4
+        image_path_title = str(VIS_TITLE_UPPER_FILE)
+        if os.path.exists(image_path_title):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(image_path_title, use_container_width=True)
+            big_text("4. 标题中全大写字母的比例越高，播放量有轻微下降的趋势,因此避免使用全大写标题，适度的首字母或关键词大写可能更受欢迎。")
+        else:
+            st.info(f"图4文件未找到: {VIS_TITLE_UPPER_FILE.name}，请将图片放置在 process 目录下。")
+
+        st.markdown("---")
+
+        # 图5 & 图6
+        col1, col2 = st.columns(2)
+        with col1:
+            image_path_tag_ratio = str(VIS_TAG_RATIO_FILE)
+            if os.path.exists(image_path_tag_ratio):
+                c1, c2, c3 = st.columns([1, 2, 1])
+                with c2:
+                    st.image(image_path_tag_ratio, caption="热门标签占比与播放量", use_container_width=True)
+            else:
+                st.info(f"文件未找到: {VIS_TAG_RATIO_FILE.name}")
+        
+        with col2:
+            image_path_tag_count = str(VIS_TAG_COUNT_FILE)
+            if os.path.exists(image_path_tag_count):
+                c1, c2, c3 = st.columns([1, 2, 1])
+                with c2:
+                    st.image(image_path_tag_count, caption="标签总数与播放量", use_container_width=True)
+            else:
+                st.info(f"文件未找到: {VIS_TAG_COUNT_FILE.name}")
+        
+        big_text("5. 热门标签占比与播放量呈现正相关趋势，而标签总数的回归线趋于平缓。表明内容的标签质量比单纯的数量堆砌更具预测力。")
+
+        st.markdown("---")
+
+        # 图7
+        image_path_publish = str(VIS_PUBLISH_TIME_FILE)
+        if os.path.exists(image_path_publish):
+            col1, col2, col3 = st.columns([1, 2, 1])
+            with col2:
+                st.image(image_path_publish, use_container_width=True)
+            big_text("6. 我们对视频发布时间进行了统计，在发布小时维度，峰值出现在上午 9 点，这个时间点发布的视频平均播放量最高，是一个明显的流量高地。凌晨 3 点也有一个小高峰，可能与跨时区观众或深夜党有关。而上午 10 点之后迅速下滑，在中午到傍晚表现相对平稳。在发布日期维度上，周一是最佳发布日，平均播放量最高，周四紧随其后。周日表现最差，这可能与观众在准备下周工作学习，减少了娱乐时间有关。这表明了特征工程中提取“周末效应”特征的正确性，即用户观看行为受工作日/休息日周期深度影响。")
+        else:
+            st.info(f"图7文件未找到: {VIS_PUBLISH_TIME_FILE.name}，请将图片放置在 process 目录下。")
 
 def show_home():
     """首页"""
