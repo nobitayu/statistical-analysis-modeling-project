@@ -1633,122 +1633,152 @@ def show_regression_model():
                 if submitted:
                     try:
                         # 计算预测值
+                        # 模型公式：log_views = intercept + sum(coefficient_i * feature_i)
+                        # 然后使用 expm1 转换回原始尺度：views = expm1(log_views)
+                        
                         intercept = regression_coeff.get('intercept', 0)
                         coefficients = regression_coeff.get('coefficients', {})
                         
-                        # 初始化预测值
+                        # 初始化预测值（从截距开始）
                         log_views_pred = intercept
                         contribution_details = []  # 用于调试和显示
                         
-                        # 处理类别特征
+                        # 1. 处理类别特征（虚拟变量）
                         if selected_category != "category_24 (参照组)":
                             category_key = selected_category + "[T.True]"
                             if category_key in coefficients:
-                                coef_value = coefficients[category_key]['coefficient']
+                                coef_value = coefficients[category_key].get('coefficient', 0)
                                 log_views_pred += coef_value
                                 contribution_details.append(f"{category_key}: {coef_value:.6f}")
                         
-                        # 处理时间特征
+                        # 2. 处理时间特征（虚拟变量）
                         if period == "period_Dawn":
-                            coef_value = coefficients.get('period_Dawn[T.True]', {}).get('coefficient', 0)
-                            log_views_pred += coef_value
-                            if coef_value != 0:
-                                contribution_details.append(f"period_Dawn[T.True]: {coef_value:.6f}")
+                            period_key = 'period_Dawn[T.True]'
+                            if period_key in coefficients:
+                                coef_value = coefficients[period_key].get('coefficient', 0)
+                                log_views_pred += coef_value
+                                if coef_value != 0:
+                                    contribution_details.append(f"{period_key}: {coef_value:.6f}")
                         elif period == "period_Morning":
-                            coef_value = coefficients.get('period_Morning[T.True]', {}).get('coefficient', 0)
-                            log_views_pred += coef_value
-                            if coef_value != 0:
-                                contribution_details.append(f"period_Morning[T.True]: {coef_value:.6f}")
+                            period_key = 'period_Morning[T.True]'
+                            if period_key in coefficients:
+                                coef_value = coefficients[period_key].get('coefficient', 0)
+                                log_views_pred += coef_value
+                                if coef_value != 0:
+                                    contribution_details.append(f"{period_key}: {coef_value:.6f}")
                         elif period == "period_Evening":
-                            coef_value = coefficients.get('period_Evening[T.True]', {}).get('coefficient', 0)
-                            log_views_pred += coef_value
-                            if coef_value != 0:
-                                contribution_details.append(f"period_Evening[T.True]: {coef_value:.6f}")
-                        # period_Afternoon是参照组，系数为0
+                            period_key = 'period_Evening[T.True]'
+                            if period_key in coefficients:
+                                coef_value = coefficients[period_key].get('coefficient', 0)
+                                log_views_pred += coef_value
+                                if coef_value != 0:
+                                    contribution_details.append(f"{period_key}: {coef_value:.6f}")
+                        # period_Afternoon是参照组，系数为0，不需要处理
                         
+                        # 3. 处理是否周末（虚拟变量）
                         if is_weekend == 1:
-                            coef_value = coefficients.get('is_weekend[T.True]', {}).get('coefficient', 0)
-                            log_views_pred += coef_value
-                            if coef_value != 0:
-                                contribution_details.append(f"is_weekend[T.True]: {coef_value:.6f}")
+                            weekend_key = 'is_weekend[T.True]'
+                            if weekend_key in coefficients:
+                                coef_value = coefficients[weekend_key].get('coefficient', 0)
+                                log_views_pred += coef_value
+                                if coef_value != 0:
+                                    contribution_details.append(f"{weekend_key}: {coef_value:.6f}")
                         
-                        # 处理标题特征
-                        title_upper_coef = coefficients.get('title_upper_ratio', {}).get('coefficient', 0)
-                        title_upper_contrib = title_upper_coef * title_upper_ratio
-                        log_views_pred += title_upper_contrib
-                        if title_upper_contrib != 0:
-                            contribution_details.append(f"title_upper_ratio: {title_upper_coef:.6f} * {title_upper_ratio:.2f} = {title_upper_contrib:.6f}")
+                        # 4. 处理标题特征
+                        # 4.1 标题大写字母占比（连续变量）
+                        if 'title_upper_ratio' in coefficients:
+                            title_upper_coef = coefficients['title_upper_ratio'].get('coefficient', 0)
+                            title_upper_contrib = title_upper_coef * title_upper_ratio
+                            log_views_pred += title_upper_contrib
+                            if title_upper_contrib != 0:
+                                contribution_details.append(f"title_upper_ratio: {title_upper_coef:.6f} * {title_upper_ratio:.2f} = {title_upper_contrib:.6f}")
                         
+                        # 4.2 标题是否包含标点符号（虚拟变量）
                         if title_has_punct == 1:
-                            coef_value = coefficients.get('title_has_punct[T.True]', {}).get('coefficient', 0)
-                            log_views_pred += coef_value
-                            if coef_value != 0:
-                                contribution_details.append(f"title_has_punct[T.True]: {coef_value:.6f}")
+                            punct_key = 'title_has_punct[T.True]'
+                            if punct_key in coefficients:
+                                coef_value = coefficients[punct_key].get('coefficient', 0)
+                                log_views_pred += coef_value
+                                if coef_value != 0:
+                                    contribution_details.append(f"{punct_key}: {coef_value:.6f}")
                         
-                        # 处理频道特征（需要log变换）
+                        # 5. 处理频道特征（需要log1p变换）
+                        # 5.1 频道活跃度
                         log_channel_activity = np.log1p(channel_activity)
+                        if 'log_channel_activity' in coefficients:
+                            channel_activity_coef = coefficients['log_channel_activity'].get('coefficient', 0)
+                            channel_activity_contrib = channel_activity_coef * log_channel_activity
+                            log_views_pred += channel_activity_contrib
+                            if channel_activity_contrib != 0:
+                                contribution_details.append(f"log_channel_activity: {channel_activity_coef:.6f} * {log_channel_activity:.4f} = {channel_activity_contrib:.6f}")
+                        
+                        # 5.2 频道平均播放量（最重要的特征）
                         log_channel_avg_views = np.log1p(channel_avg_views)
+                        if 'log_channel_avg_views' in coefficients:
+                            channel_avg_views_coef = coefficients['log_channel_avg_views'].get('coefficient', 0)
+                            channel_avg_views_contrib = channel_avg_views_coef * log_channel_avg_views
+                            log_views_pred += channel_avg_views_contrib
+                            if channel_avg_views_contrib != 0:
+                                contribution_details.append(f"log_channel_avg_views: {channel_avg_views_coef:.6f} * {log_channel_avg_views:.4f} = {channel_avg_views_contrib:.6f}")
+                        
+                        # 5.3 频道平均评论数（注意：系数为负，值过大会导致预测不合理）
                         log_channel_avg_comment_count = np.log1p(channel_avg_comment_count)
+                        if 'log_channel_avg_comment_count' in coefficients:
+                            channel_comment_coef = coefficients['log_channel_avg_comment_count'].get('coefficient', 0)
+                            channel_comment_contrib = channel_comment_coef * log_channel_avg_comment_count
+                            log_views_pred += channel_comment_contrib
+                            if channel_comment_contrib != 0:
+                                contribution_details.append(f"log_channel_avg_comment_count: {channel_comment_coef:.6f} * {log_channel_avg_comment_count:.4f} = {channel_comment_contrib:.6f}")
                         
-                        channel_activity_coef = coefficients.get('log_channel_activity', {}).get('coefficient', 0)
-                        channel_activity_contrib = channel_activity_coef * log_channel_activity
-                        log_views_pred += channel_activity_contrib
-                        if channel_activity_contrib != 0:
-                            contribution_details.append(f"log_channel_activity: {channel_activity_coef:.6f} * {log_channel_activity:.4f} = {channel_activity_contrib:.6f}")
-                        
-                        channel_avg_views_coef = coefficients.get('log_channel_avg_views', {}).get('coefficient', 0)
-                        channel_avg_views_contrib = channel_avg_views_coef * log_channel_avg_views
-                        log_views_pred += channel_avg_views_contrib
-                        if channel_avg_views_contrib != 0:
-                            contribution_details.append(f"log_channel_avg_views: {channel_avg_views_coef:.6f} * {log_channel_avg_views:.4f} = {channel_avg_views_contrib:.6f}")
-                        
-                        channel_comment_coef = coefficients.get('log_channel_avg_comment_count', {}).get('coefficient', 0)
-                        channel_comment_contrib = channel_comment_coef * log_channel_avg_comment_count
-                        log_views_pred += channel_comment_contrib
-                        if channel_comment_contrib != 0:
-                            contribution_details.append(f"log_channel_avg_comment_count: {channel_comment_coef:.6f} * {log_channel_avg_comment_count:.4f} = {channel_comment_contrib:.6f}")
-                        
-                        # 处理文本特征
+                        # 6. 处理文本特征
+                        # 6.1 标签数量（需要log1p变换）
                         log_tags_count = np.log1p(tags_count)
+                        if 'log_tags_count' in coefficients:
+                            tags_count_coef = coefficients['log_tags_count'].get('coefficient', 0)
+                            tags_count_contrib = tags_count_coef * log_tags_count
+                            log_views_pred += tags_count_contrib
+                            if tags_count_contrib != 0:
+                                contribution_details.append(f"log_tags_count: {tags_count_coef:.6f} * {log_tags_count:.4f} = {tags_count_contrib:.6f}")
+                        
+                        # 6.2 标签密度（连续变量）
+                        if 'tag_density' in coefficients:
+                            tag_density_coef = coefficients['tag_density'].get('coefficient', 0)
+                            tag_density_contrib = tag_density_coef * tag_density
+                            log_views_pred += tag_density_contrib
+                            if tag_density_contrib != 0:
+                                contribution_details.append(f"tag_density: {tag_density_coef:.6f} * {tag_density:.2f} = {tag_density_contrib:.6f}")
+                        
+                        # 6.3 描述长度（需要log1p变换）
                         log_desc_length = np.log1p(desc_length)
+                        if 'log_desc_length' in coefficients:
+                            desc_length_coef = coefficients['log_desc_length'].get('coefficient', 0)
+                            desc_length_contrib = desc_length_coef * log_desc_length
+                            log_views_pred += desc_length_contrib
+                            if desc_length_contrib != 0:
+                                contribution_details.append(f"log_desc_length: {desc_length_coef:.6f} * {log_desc_length:.4f} = {desc_length_contrib:.6f}")
                         
-                        tags_count_coef = coefficients.get('log_tags_count', {}).get('coefficient', 0)
-                        tags_count_contrib = tags_count_coef * log_tags_count
-                        log_views_pred += tags_count_contrib
-                        if tags_count_contrib != 0:
-                            contribution_details.append(f"log_tags_count: {tags_count_coef:.6f} * {log_tags_count:.4f} = {tags_count_contrib:.6f}")
-                        
-                        tag_density_coef = coefficients.get('tag_density', {}).get('coefficient', 0)
-                        tag_density_contrib = tag_density_coef * tag_density
-                        log_views_pred += tag_density_contrib
-                        if tag_density_contrib != 0:
-                            contribution_details.append(f"tag_density: {tag_density_coef:.6f} * {tag_density:.2f} = {tag_density_contrib:.6f}")
-                        
-                        desc_length_coef = coefficients.get('log_desc_length', {}).get('coefficient', 0)
-                        desc_length_contrib = desc_length_coef * log_desc_length
-                        log_views_pred += desc_length_contrib
-                        if desc_length_contrib != 0:
-                            contribution_details.append(f"log_desc_length: {desc_length_coef:.6f} * {log_desc_length:.4f} = {desc_length_contrib:.6f}")
-                        
+                        # 6.4 描述中是否包含时间戳（虚拟变量）
                         if desc_has_timestamp == 1:
                             # 注意：desc_has_timestamp的键名是"desc_has_timestamp"而不是"desc_has_timestamp[T.True]"
-                            coef_value = coefficients.get('desc_has_timestamp', {}).get('coefficient', 0)
-                            log_views_pred += coef_value
-                            if coef_value != 0:
-                                contribution_details.append(f"desc_has_timestamp: {coef_value:.6f}")
+                            if 'desc_has_timestamp' in coefficients:
+                                coef_value = coefficients['desc_has_timestamp'].get('coefficient', 0)
+                                log_views_pred += coef_value
+                                if coef_value != 0:
+                                    contribution_details.append(f"desc_has_timestamp: {coef_value:.6f}")
                         
-                        desc_keyword_coef = coefficients.get('desc_keyword_count', {}).get('coefficient', 0)
-                        desc_keyword_contrib = desc_keyword_coef * desc_keyword_count
-                        log_views_pred += desc_keyword_contrib
-                        if desc_keyword_contrib != 0:
-                            contribution_details.append(f"desc_keyword_count: {desc_keyword_coef:.6f} * {desc_keyword_count} = {desc_keyword_contrib:.6f}")
+                        # 6.5 描述中关键词数量（连续变量）
+                        if 'desc_keyword_count' in coefficients:
+                            desc_keyword_coef = coefficients['desc_keyword_count'].get('coefficient', 0)
+                            desc_keyword_contrib = desc_keyword_coef * desc_keyword_count
+                            log_views_pred += desc_keyword_contrib
+                            if desc_keyword_contrib != 0:
+                                contribution_details.append(f"desc_keyword_count: {desc_keyword_coef:.6f} * {desc_keyword_count} = {desc_keyword_contrib:.6f}")
                         
-                        # 转换回原始尺度（因为使用的是log1p变换）
-                        # 注意：如果 log_views_pred 是负数，expm1 会得到接近 -1 的值，这是不合理的
-                        # 应该使用 exp 而不是 expm1，因为模型预测的是 log(views+1)
+                        # 7. 转换回原始尺度
+                        # 模型预测的是 log(views+1)，所以使用 expm1 转换：views = expm1(log_views) = exp(log_views) - 1
                         if log_views_pred < 0:
                             st.warning(f"⚠️ 警告：对数预测值为负数 ({log_views_pred:.4f})，这可能导致不合理的预测结果。")
-                            st.info("可能的原因：输入的特征值超出了训练数据的范围，或者某些特征值过大。")
+                            st.info("可能的原因：输入的特征值超出了训练数据的范围，或者某些特征值过大（特别是频道平均评论数）。")
                             # 即使为负数，也尝试转换（虽然不合理）
                             views_pred = max(0, np.expm1(log_views_pred))
                         else:
