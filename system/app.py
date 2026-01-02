@@ -30,6 +30,45 @@ st.set_page_config(
 plt.rcParams['font.sans-serif'] = ['SimHei', 'Arial Unicode MS', 'DejaVu Sans']
 plt.rcParams['axes.unicode_minus'] = False
 
+# 视频类别映射字典 (category_id -> category_name)
+CATEGORY_MAPPING = {
+    1: "Film & Animation",
+    2: "Autos & Vehicles",
+    10: "Music",
+    15: "Pets & Animals",
+    17: "Sports",
+    18: "Short Movies",
+    19: "Travel & Events",
+    20: "Gaming",
+    21: "Videoblogging",
+    22: "People & Blogs",
+    23: "Comedy",
+    24: "Entertainment",
+    25: "News & Politics",
+    26: "Howto & Style",
+    27: "Education",
+    28: "Science & Technology",
+    29: "Nonprofits & Activism",
+    30: "Movies",
+    31: "Anime/Animation",
+    32: "Action/Adventure",
+    33: "Classics",
+    34: "Comedy",
+    35: "Documentary",
+    36: "Drama",
+    37: "Family",
+    38: "Foreign",
+    39: "Horror",
+    40: "Sci-Fi/Fantasy",
+    41: "Thriller",
+    42: "Shorts",
+    43: "Shows",
+    44: "Trailers"
+}
+
+# 反向映射 (category_name -> category_id)
+CATEGORY_NAME_TO_ID = {v: k for k, v in CATEGORY_MAPPING.items()}
+
 # 文件路径配置
 # 获取当前工作目录，假设从项目根目录运行
 import sys
@@ -1272,13 +1311,9 @@ def show_prediction():
             tags_in_title = st.selectbox("标题中是否包含标签", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
             is_weekend = st.selectbox("是否在周末发布", [0, 1], format_func=lambda x: "是" if x == 1 else "否")
             time_period = st.selectbox("时间段", ["dawn", "morning", "afternoon", "evening", "night"], index=2)
-            category = st.selectbox("视频类别", [
-                "Autos & Vehicles", "Comedy", "Education", "Entertainment",
-                "Film & Animation", "Gaming", "Howto & Style", "Music",
-                "News & Politics", "Nonprofits & Activism", "People & Blogs",
-                "Pets & Animals", "Science & Technology", "Sports",
-                "Travel & Events", "Unknown"
-            ], index=5)
+            # 获取所有类别名称并排序
+            category_names = sorted(set(CATEGORY_MAPPING.values()))
+            category = st.selectbox("视频类别", category_names, index=category_names.index("Gaming") if "Gaming" in category_names else 0)
         
         submitted = st.form_submit_button("预测", use_container_width=True)
         
@@ -1758,34 +1793,34 @@ def show_regression_model():
             with st.form("regression_prediction_form"):
                 st.write("**视频特征输入**")
                 
+                # 构建类别选项映射（在表单开始处定义，确保整个表单范围内可用）
+                category_options_list = []
+                category_display_map = {}
+                
+                # 添加所有可用的类别（除了参照组category_24）
+                available_categories = [1, 2, 10, 15, 17, 19, 20, 22, 23, 25, 26, 27, 28, 29]
+                for cat_id in available_categories:
+                    category_key = f"category_{cat_id}"
+                    category_name = CATEGORY_MAPPING.get(cat_id, f"类别{cat_id}")
+                    category_options_list.append(category_key)
+                    category_display_map[category_key] = category_name
+                
+                # 添加参照组选项
+                category_options_list.append("category_24 (参照组)")
+                category_display_map["category_24 (参照组)"] = f"{CATEGORY_MAPPING.get(24, 'Entertainment')} (参照组)"
+                
                 # 分为多个列布局
                 col1, col2 = st.columns(2)
                 
                 with col1:
                     st.markdown("##### 类别特征")
-                    # 类别选择（category_24是参照组，不显示）
-                    category_options = {
-                        "category_1": "类别1",
-                        "category_2": "类别2",
-                        "category_10": "类别10",
-                        "category_15": "类别15",
-                        "category_17": "类别17",
-                        "category_19": "类别19",
-                        "category_20": "类别20",
-                        "category_22": "类别22",
-                        "category_23": "类别23",
-                        "category_25": "类别25",
-                        "category_26": "类别26",
-                        "category_27": "类别27",
-                        "category_28": "类别28",
-                        "category_29": "类别29",
-                        "category_24 (参照组)": None
-                    }
+                    # 类别选择（category_24是参照组）
                     selected_category = st.selectbox(
                         "视频类别",
-                        options=list(category_options.keys()),
-                        index=len(category_options)-1,  # 默认选择参照组
-                        help="category_24为参照组，选择其他类别将使用对应的系数"
+                        options=category_options_list,
+                        index=len(category_options_list)-1,  # 默认选择参照组
+                        format_func=lambda x: category_display_map.get(x, x),
+                        help="category_24 (Entertainment) 为参照组，选择其他类别将使用对应的系数"
                     )
                     
                     st.markdown("##### 时间特征")
@@ -2134,7 +2169,7 @@ def show_regression_model():
                                 '描述关键词数'
                             ],
                             '输入值': [
-                                selected_category,
+                                category_display_map.get(selected_category, selected_category),
                                 period,
                                 "是" if is_weekend == 1 else "否",
                                 f"{title_upper_ratio:.2f}",
